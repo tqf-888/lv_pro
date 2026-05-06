@@ -78,6 +78,29 @@ ImgFrame *JpegDecoderGetFrame(JpegDecoder* v);
  * 每张图绘完后必须调用，否则 ION DMA 堆会持续累积导致 CMA OOM。 */
 void JpegDecoderReleaseSession(JpegDecoder* v);
 
+/*
+ * 把 GetFrame 刚刚生产的 RGB 缓冲从单例里"摘走"，所有权交给调用方。
+ *
+ * 摘走之后：
+ *   - p->mImgFrame.mRGBData 被置 NULL
+ *   - 下次 JpegDecoderGetFrame 不会再 free 这块（旧实现一进 GetFrame 就把
+ *     上一张的 mRGBData free 掉，多 dsc 共存时直接 use-after-free）
+ *   - 调用方必须用 JpegDecoderFreeFrameBuffer 释放
+ *
+ * 配合 LV_IMG_CACHE_DEF_SIZE > 0 时必须用这个，否则 cache 一开就崩。
+ *
+ * 失败返回 NULL（GetFrame 没成功 / mRGBData 已经为空）。
+ */
+uint8_t* JpegDecoderDetachFrameBuffer(JpegDecoder* v,
+                                      uint32_t* out_display_w,
+                                      uint32_t* out_display_h);
+
+/*
+ * 释放 JpegDecoderDetachFrameBuffer 返回的缓冲，按编译宏自动选择
+ * sunxifb_mem_free / lv_mem_free。NULL 安全。
+ */
+void JpegDecoderFreeFrameBuffer(uint8_t* buf);
+
 #endif /*LV_USE_SJPG*/
 
 #ifdef __cplusplus

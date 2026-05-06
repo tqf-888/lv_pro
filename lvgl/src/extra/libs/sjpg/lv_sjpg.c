@@ -718,9 +718,32 @@ end:
                 return LV_RES_INV;
             }
 
-            dsc->header.w = imgFrame->mDisplayWidth;
-            dsc->header.h = imgFrame->mDisplayHeight;
-            dsc->img_data = imgFrame->mRGBData;
+            /*
+             * 把这一帧的 RGB 缓冲从单例里摘走，让 dsc 拥有独立的 img_data。
+             * 之所以必须 detach：
+             *   1. 旧实现 dsc->img_data 共享单例 mImgFrame.mRGBData；
+             *   2. 下一张图 GetFrame 入口会先 lv_mem_free 旧 mRGBData 再 alloc 新的；
+             *   3. 当 LV_IMG_CACHE_DEF_SIZE > 0 时 cache 里存活多张 dsc，第二张
+             *      open 就会把第一张的 img_data 释放掉，造成 use-after-free，必崩。
+             *
+             * 摘走之后立即 ReleaseSession 销毁 VideoDecoder，下张图重新 Create。
+             * 这块缓冲的所有权归 dsc，由 decoder_close 调用
+             * JpegDecoderFreeFrameBuffer 释放。
+             */
+            uint32_t det_w = 0;
+            uint32_t det_h = 0;
+            uint8_t * detached = JpegDecoderDetachFrameBuffer(jpegdecoder, &det_w, &det_h);
+
+            JpegDecoderReleaseSession(jpegdecoder);
+
+            if(detached == NULL) {
+                LV_LOG_WARN("DetachFrameBuffer NULL: file=%s", fn);
+                return LV_RES_INV;
+            }
+
+            dsc->header.w = det_w;
+            dsc->header.h = det_h;
+            dsc->img_data = detached;
             return LV_RES_OK;
 #else
             lv_fs_file_t lv_file;
@@ -1009,11 +1032,17 @@ static void decoder_close(lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * dsc
     LV_UNUSED(decoder);
     LV_UNUSED(dsc);
 #ifdef USE_HARDWARE_JPEGDECODER
-    /* 硬解器是单例 jpegdecoder：每张图绘完后必须释放本次 VideoDecoder，
-     * 否则它持有的 ION DMA 堆会一直累积，几十~一百张就把 CMA 吃光，
-     * 表现是 cedarc CdcDmaheapAllocFd errno=12 (Out of memory)。 */
-    if(jpegdecoder) {
-        JpegDecoderReleaseSession(jpegdecoder);
+    /*
+     * 现在每张图独立持有一块 detach 出来的 RGB 缓冲（见 decoder_open），
+     * 关闭/驱逐时把它释放掉即可。VideoDecoder 已经在 decoder_open 末尾
+     * release 过，这里不再需要 JpegDecoderReleaseSession。
+     *
+     * 这样 LV_IMG_CACHE_DEF_SIZE > 0 时多张 dsc 共存也安全：
+     * 每个 dsc->img_data 都指向独立缓冲，互不踩踏；LRU 把哪张踢出去就 free 哪张。
+     */
+    if(dsc != NULL && dsc->img_data != NULL) {
+        JpegDecoderFreeFrameBuffer((uint8_t *)dsc->img_data);
+        dsc->img_data = NULL;
     }
     return;
 #else

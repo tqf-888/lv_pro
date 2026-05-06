@@ -729,4 +729,39 @@ void JpegDecoderReleaseSession(JpegDecoder* v)
     }
 }
 
+uint8_t* JpegDecoderDetachFrameBuffer(JpegDecoder* v,
+                                      uint32_t* out_display_w,
+                                      uint32_t* out_display_h)
+{
+    JpegDecoderContext* p = (JpegDecoderContext*)v;
+    uint8_t* taken;
+
+    if(p == NULL || p->mImgFrame.mRGBData == NULL) {
+        if(out_display_w) *out_display_w = 0;
+        if(out_display_h) *out_display_h = 0;
+        return NULL;
+    }
+
+    taken = p->mImgFrame.mRGBData;
+    if(out_display_w) *out_display_w = p->mImgFrame.mDisplayWidth;
+    if(out_display_h) *out_display_h = p->mImgFrame.mDisplayHeight;
+
+    /* 关键：把缓冲指针从单例里清掉，下次 GetFrame 入口的 free 分支就会跳过，
+     * 让这块 RGB 数据"逃出"单例的生命周期。所有权移交给调用方。 */
+    p->mImgFrame.mRGBData = NULL;
+    memset(&p->mImgFrame, 0x00, sizeof(ImgFrame));
+
+    return taken;
+}
+
+void JpegDecoderFreeFrameBuffer(uint8_t* buf)
+{
+    if(buf == NULL) return;
+#ifdef USE_SUNXIFB_G2D
+    sunxifb_mem_free((void**)&buf, "JpegDecoderFreeFrameBuffer");
+#else
+    lv_mem_free(buf);
+#endif
+}
+
 #endif /*LV_USE_SJPG*/
