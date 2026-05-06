@@ -1,0 +1,46 @@
+#ifndef NETWORK_WIFI_FUNCTION_H
+#define NETWORK_WIFI_FUNCTION_H
+
+// 必须的基础头文件：定义bool类型和标准类型
+#include <stdbool.h>   // 提供bool/true/false定义
+#include <stddef.h>    // 提供NULL/const等基础定义
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// =============================================================================
+// 功能：连接WIFI网络
+// 参数：ssid：WIFI名称（SSID），password：WIFI密码
+// 返回：true：连接成功或命令执行成功；false：连接失败
+// 说明：此函数会启动wifi守护进程，设置为station模式，然后连接指定的WIFI
+// =============================================================================
+bool NetWork_WIFI_Connect(const char *ssid, const char *password);
+
+// =============================================================================
+// 功能：断开WIFI连接
+// 参数：无
+// 返回：true：断开成功；false：断开失败
+// =============================================================================
+bool NetWork_WIFI_Disconnect(void);
+
+// =============================================================================
+// 功能：检查WIFI连接状态
+// 参数：无
+// 返回：true：已连接；false：未连接
+// =============================================================================
+bool NetWork_WIFI_IsConnected(void);
+
+// =============================================================================
+// 功能：获取当前已连接 WiFi 的 SSID
+// 参数：ssid_buf：输出缓冲区；ssid_buf_size：缓冲区大小
+// 返回：true：获取成功；false：当前未连接或无法读取 SSID
+// 说明：优先使用 iwgetid/wpa_cli，失败后解析 wifi -s / wifi -g / wifi -S 输出。
+// =============================================================================
+bool NetWork_WIFI_GetConnectedSSID(char *ssid_buf, size_t ssid_buf_size);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // NETWORK_WIFI_FUNCTION_H
