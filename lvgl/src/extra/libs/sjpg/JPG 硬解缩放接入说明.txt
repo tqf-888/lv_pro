@@ -1,0 +1,125 @@
+JPG 硬解缩放接入说明
+
+1. 问题现象
+项目最开始已经能显示 JPG，但把 lv_sjpg.c 里的硬解缩放参数改成 JPEG_DECODE_SCALE_DOWN_8 后，屏幕上看起来图片大小几乎没变化，底部仍然显示 w=128 h=174 cf=1。一开始去看串口里的 Starting kernel ... 启动日志，也没有找到想要的输出。
+
+2. 根因分析
+最后定位出这是几个问题叠加导致的。
+
+第一，最开始 JPG 实际走的是 lv_sjpg.c 的软件分支，不是硬件分支，所以改硬解缩放参数本身不会生效。根因是配置里没有打开 CONFIG_LVGL8_USE_HARDWARE_JPEGDECODER，因此编译时没有带上 -DUSE_HARDWARE_JPEGDECODER。
+
+第二，源码目录和编译目录不是实时同步的。正式源码在 lv_sjpg.c，但实际编译用的是 lv_sjpg.c 这个 build 缓存副本。只改源文件，不删 build_dir，构建系统可能继续复用旧副本。
+
+第三，即使后来硬解缩放已经生效，外层边框看起来仍然没缩小，是因为 decoder_open() 里解码后的实际输出已经变小，但 decoder_info() 仍然向 LVGL 返回原图头尺寸 128x174，导致布局尺寸和边框尺寸还是原来的大尺寸。
+
+3. 修改步骤
+先确认新程序确实烧到了板子上，并且板子支持文件写入。在 main.c 的 main() 里，在 events_init(&guider_ui); 后、sleep(15); 前加：
+
+FILE *fp = fopen("/mnt/UDISK/main_probe.log", "a+");
+if(fp) {
+    fprintf(fp, "main reached before jpg_test_page_open\n");
+    fclose(fp);
+}
+板子上执行 cat /mnt/UDISK/main_probe.log，看到内容后，说明新编译的 lv_projector 已经在运行。
+
+然后在 lv_sjpg.c 里加临时日志，分别放在 decoder_info()、decoder_open()、硬解分支和软件分支里，全部写到 /mnt/UDISK。最终通过日志确认：一开始走的是软件分支，硬解分支没有命中。
+
+接着修改配置，打开硬解 JPG 选项。把下面三个文件里原来的：
+
+# CONFIG_LVGL8_USE_HARDWARE_JPEGDECODER is not set
+替换成：
+
+CONFIG_LVGL8_USE_HARDWARE_JPEGDECODER=y
+需要修改的文件是：
+defconfig
+defconfig
+.config
+
+修改后，如果顶层 make -j8 还没有生效，需要删除 build 缓存目录强制重新同步：
+
+rm -rf /root/H135/out/h137/evb1_nand/openwrt/build_dir/target/lv_projector
+然后回到顶层工程目录重新编译：
+
+cd /root/H135
+make -j8
+为了验证 USE_HARDWARE_JPEGDECODER 宏是否真的进了实际编译，还可以在 lv_sjpg.c 的 #if LV_USE_SJPG 后临时加：
+
+#ifdef USE_HARDWARE_JPEGDECODER
+#error "USE_HARDWARE_JPEGDECODER_ON"
+#else
+#error "USE_HARDWARE_JPEGDECODER_OFF"
+#endif
+删除 build_dir 后重新 make -j8，如果编译报 USE_HARDWARE_JPEGDECODER_ON，说明硬解宏已经真正进入编译。验证完成后把这段 #error 删掉。
+
+正式功能代码里，在 lv_sjpg.c 的 #ifdef USE_HARDWARE_JPEGDECODER 区域增加统一缩放配置：
+
+#define LV_SJPG_HW_SCALE_RATIO JPEG_DECODE_SCALE_DOWN_8
+static JpegDecoder* jpegdecoder;
+在 decoder_open() 的硬解 JPG 分支中，把：
+
+JpegDecodeScaleDownRatio scaleRatio = JPEG_DECODE_SCALE_DOWN_8;
+改成：
+
+JpegDecodeScaleDownRatio scaleRatio = LV_SJPG_HW_SCALE_RATIO;
+并在 JpegDecoderGetFrame() 成功后保留：
+
+dsc->header.w = imgFrame->mDisplayWidth;
+dsc->header.h = imgFrame->mDisplayHeight;
+dsc->img_data = imgFrame->mRGBData;
+最后，为了让外层边框和 w/h 文本也跟着缩小，还要修改 decoder_info()。在 lv_sjpg.c 中新增一个 helper：
+
+static void lv_sjpg_apply_hw_scale(lv_img_header_t * header)
+{
+    switch(LV_SJPG_HW_SCALE_RATIO) {
+        case JPEG_DECODE_SCALE_DOWN_2:
+            header->w >>= 1;
+            header->h >>= 1;
+            break;
+        case JPEG_DECODE_SCALE_DOWN_4:
+            header->w >>= 2;
+            header->h >>= 2;
+            break;
+        case JPEG_DECODE_SCALE_DOWN_8:
+            header->w >>= 3;
+            header->h >>= 3;
+            break;
+        case JPEG_DECODE_SCALE_DOWN_1:
+        default:
+            break;
+    }
+
+    if(header->w == 0) header->w = 1;
+    if(header->h == 0) header->h = 1;
+}
+然后在 decoder_info() 的两个 JPG 分支中，在拿到 jd_tmp.width 和 jd_tmp.height 后都调用：
+
+#ifdef USE_HARDWARE_JPEGDECODER
+    lv_sjpg_apply_hw_scale(header);
+#endif
+这样 decoder_info() 返回给 LVGL 的宽高也会从原始 128x174 变成缩放后的尺寸，外边框才会一起缩小。
+
+4. 验证方法
+板子上先清空调试日志，然后重新下载测试图并运行：
+
+rm -f /mnt/UDISK/lv_sjpg_hw.log /mnt/UDISK/lv_sjpg_sw.log /mnt/UDISK/jpg_scale.log
+wget http://192.168.1.211:8000/kanghe_logo.jpg -O /mnt/UDISK/test.jpg
+lv_projector
+验证硬解是否真正跑起来，可以查看：
+
+cat /mnt/UDISK/lv_sjpg_hw.log
+cat /mnt/UDISK/lv_sjpg_sw.log
+cat /mnt/UDISK/jpg_scale.log
+最终成功时，板子输出结果是：
+
+lv_sjpg hardware branch hit
+而软件分支日志不存在：
+
+cat: can't open '/mnt/UDISK/lv_sjpg_sw.log': No such file or directory
+并且 jpg_scale.log 中能看到：
+
+JPG scaleRatio=3
+decoded display=16 x 21, buffer=16 x 32
+这说明硬解已经命中，JPEG_DECODE_SCALE_DOWN_8 也已经真正生效。原始 128x174 的 JPG 被硬件解码缩成了 16x21，buffer=16x32 只是硬件按块对齐的结果。
+
+5. 常见坑
+最容易踩的坑有四个。第一，不要去内核启动日志里找 JPG 解码日志，Starting kernel ... 那段只能看到内核启动信息。第二，不要长期直接改 out/.../build_dir/...，正式修改应该改 platform/... 源文件；如果发现 build 副本没更新，就删掉 out/.../build_dir/target/lv_projector 让它重新同步。第三，w=128 h=174 cf=1 这种显示是 decoder_info() 返回的图片头信息，不等于硬解后的实际输出尺寸。第四，decoder_close() 里目前还有 JpegDecoderDestory(jpegdecoder);，而 jpegdecoder 是在 lv_split_jpeg_init() 里全局创建的，这个生命周期设计后续可能会影响连续解码稳定性，建议后面单独整理。

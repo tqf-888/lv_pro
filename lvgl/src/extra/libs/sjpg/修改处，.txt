@@ -1,0 +1,128 @@
+相较于最初版本，真正需要保留的正式修改主要就 4 处，外加一批只用于定位问题的临时调试代码。
+
+正式修改
+
+打开硬件 JPG 解码配置。
+文件：
+defconfig
+defconfig
+.config
+把原来的：
+
+# CONFIG_LVGL8_USE_HARDWARE_JPEGDECODER is not set
+改成：
+
+CONFIG_LVGL8_USE_HARDWARE_JPEGDECODER=y
+在 JPG 解码文件里增加统一缩放配置。
+文件：
+lv_sjpg.c
+在原来这段附近：
+
+#ifdef USE_HARDWARE_JPEGDECODER
+static JpegDecoder* jpegdecoder;
+#endif
+改成：
+
+#ifdef USE_HARDWARE_JPEGDECODER
+#define LV_SJPG_HW_SCALE_RATIO JPEG_DECODE_SCALE_DOWN_8
+
+static JpegDecoder* jpegdecoder;
+
+static void lv_sjpg_apply_hw_scale(lv_img_header_t * header)
+{
+    switch(LV_SJPG_HW_SCALE_RATIO) {
+        case JPEG_DECODE_SCALE_DOWN_2:
+            header->w >>= 1;
+            header->h >>= 1;
+            break;
+        case JPEG_DECODE_SCALE_DOWN_4:
+            header->w >>= 2;
+            header->h >>= 2;
+            break;
+        case JPEG_DECODE_SCALE_DOWN_8:
+            header->w >>= 3;
+            header->h >>= 3;
+            break;
+        case JPEG_DECODE_SCALE_DOWN_1:
+        default:
+            break;
+    }
+
+    if(header->w == 0) header->w = 1;
+    if(header->h == 0) header->h = 1;
+}
+#endif
+让 decoder_info() 返回缩放后的宽高，而不是原图宽高。
+文件：
+lv_sjpg.c
+第一处，在 decoder_info() 的“变量 JPG 分支”里，把：
+
+if(rc == JDR_OK) {
+    header->w = jd_tmp.width;
+    header->h = jd_tmp.height;
+}
+改成：
+
+if(rc == JDR_OK) {
+    header->w = jd_tmp.width;
+    header->h = jd_tmp.height;
+#ifdef USE_HARDWARE_JPEGDECODER
+    lv_sjpg_apply_hw_scale(header);
+#endif
+}
+第二处，在 decoder_info() 的“文件 JPG 分支”里，把：
+
+if(rc == JDR_OK) {
+    header->always_zero = 0;
+    header->cf = LV_IMG_CF_RAW;
+    header->w = jd_tmp.width;
+    header->h = jd_tmp.height;
+    return LV_RES_OK;
+}
+改成：
+
+if(rc == JDR_OK) {
+    header->always_zero = 0;
+    header->cf = LV_IMG_CF_RAW;
+    header->w = jd_tmp.width;
+    header->h = jd_tmp.height;
+#ifdef USE_HARDWARE_JPEGDECODER
+    lv_sjpg_apply_hw_scale(header);
+#endif
+    return LV_RES_OK;
+}
+让 decoder_open() 和 decoder_info() 使用同一个缩放比例，并回写真实输出尺寸。
+文件：
+lv_sjpg.c
+在硬解分支里，把原来的：
+
+JpegDecodeScaleDownRatio scaleRatio = JPEG_DECODE_SCALE_DOWN_8;
+改成：
+
+JpegDecodeScaleDownRatio scaleRatio = LV_SJPG_HW_SCALE_RATIO;
+并保留这两行：
+
+dsc->header.w = imgFrame->mDisplayWidth;
+dsc->header.h = imgFrame->mDisplayHeight;
+这样最终效果是：
+
+硬解时实际输出尺寸变小
+decoder_info() 返回的尺寸也变小
+页面上的图片外边框和 w/h 显示才会一起变小
+临时调试修改
+
+在 main.c 里加 main_probe.log，验证新程序是否真的跑起来。
+在 lv_sjpg.c 里加：
+/mnt/UDISK/lv_sjpg_info.log
+/mnt/UDISK/lv_sjpg_open.log
+/mnt/UDISK/lv_sjpg_hw.log
+/mnt/UDISK/lv_sjpg_sw.log
+/mnt/UDISK/jpg_scale.log
+用来确认是否进了 decoder_info()、decoder_open()、硬解分支、软件分支，以及硬解后的真实尺寸。
+3. 临时加过 #error "USE_HARDWARE_JPEGDECODER_ON/OFF"，只用于编译期确认宏是否生效，最终一定要删掉。
+
+一句话总结
+相较于最初版本，核心正式修改只有两类：
+
+配置层：把 CONFIG_LVGL8_USE_HARDWARE_JPEGDECODER 从 not set 改成 y
+代码层：在 lv_sjpg.c 里让 decoder_info() 和 decoder_open() 都按同一个硬解缩放比例工作，并把缩放后的尺寸返回给 LVGL

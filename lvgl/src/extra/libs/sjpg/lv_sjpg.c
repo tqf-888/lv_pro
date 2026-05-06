@@ -47,11 +47,12 @@
 
 #include "../../../lvgl.h"
 #if LV_USE_SJPG
-
-#include "sunxijpgd.h"
-#include "tjpgd.h"
+#include <stdio.h> 
+#include "sunxijpgd.h"   
+#include "tjpgd.h" 
 #include "lv_sjpg.h"
 #include "../../../misc/lv_fs.h"
+
 
 /*********************
  *      DEFINES
@@ -63,7 +64,7 @@
 #define SJPEG_X_RES_OFFSET              14
 #define SJPEG_y_RES_OFFSET              16
 #define SJPEG_TOTAL_FRAMES_OFFSET       18
-#define SJPEG_BLOCK_WIDTH_OFFSET        20
+#define SJPEG_BLOCK_WIDTH_OFFSET        20 
 #define SJPEG_FRAME_INFO_ARRAY_OFFSET   22
 
 /**********************
@@ -122,8 +123,36 @@ static void lv_sjpg_cleanup(SJPEG * sjpeg);
 static void lv_sjpg_free(SJPEG * sjpeg);
 
 #ifdef USE_HARDWARE_JPEGDECODER
+#define LV_SJPG_HW_SCALE_RATIO JPEG_DECODE_SCALE_DOWN_2
+//不缩放1，缩小到 1/2数字改为2，缩小到 1/4数字改为4，缩小到 1/8改8
+
 static JpegDecoder* jpegdecoder;
+
+static void lv_sjpg_apply_hw_scale(lv_img_header_t * header)
+{
+    switch(LV_SJPG_HW_SCALE_RATIO) {
+        case JPEG_DECODE_SCALE_DOWN_2:
+            header->w >>= 1;
+            header->h >>= 1;
+            break;
+        case JPEG_DECODE_SCALE_DOWN_4:
+            header->w >>= 2;
+            header->h >>= 2;
+            break;
+        case JPEG_DECODE_SCALE_DOWN_8:
+            header->w >>= 3;
+            header->h >>= 3;
+            break;
+        case JPEG_DECODE_SCALE_DOWN_1:
+        default:
+            break;
+    }
+
+    if(header->w == 0) header->w = 1;
+    if(header->h == 0) header->h = 1;
+}
 #endif
+
 
 /**********************
  *  STATIC VARIABLES
@@ -211,9 +240,12 @@ static lv_res_t decoder_info(lv_img_decoder_t * decoder, const void * src, lv_im
 
             JRESULT rc = jd_prepare(&jd_tmp, input_func, workb_temp, (size_t)TJPGD_WORKBUFF_SIZE, &io_source_temp);
             if(rc == JDR_OK) {
-                header->w = jd_tmp.width;
-                header->h = jd_tmp.height;
+            header->w = jd_tmp.width;
+            header->h = jd_tmp.height;
 
+            #ifdef USE_HARDWARE_JPEGDECODER
+            lv_sjpg_apply_hw_scale(header);
+            #endif
             }
             else {
                 ret = LV_RES_INV;
@@ -300,8 +332,12 @@ end:
                 header->cf = LV_IMG_CF_RAW;
                 header->w = jd_tmp.width;
                 header->h = jd_tmp.height;
+            #ifdef USE_HARDWARE_JPEGDECODER
+                lv_sjpg_apply_hw_scale(header);
+            #endif
                 return LV_RES_OK;
             }
+
         }
     }
     return LV_RES_INV;
@@ -645,38 +681,48 @@ end:
 #endif
 
 #ifdef USE_HARDWARE_JPEGDECODER
-
             /*Load the JPEG file into buffer. It's still compressed (not decoded)*/
-            char* jpg_data;      /*Pointer to the loaded data. Same as the original file just loaded into the RAM*/
-            int jpg_data_size;   /*Size of `jpg_data` in bytes*/
+            char * jpg_data;
+            int jpg_data_size;
 
-            if(sunxijpgd_load_file(&jpg_data, &jpg_data_size, fn) != 0) {   /*Load the file*/
-                LV_LOG_WARN("sunxijpgd load jpg file fail!\n");
+            if(jpegdecoder == NULL) {
+                LV_LOG_WARN("hw jpegdecoder not initialized, file=%s", fn);
                 return LV_RES_INV;
             }
 
-            JpegDecodeScaleDownRatio scaleRatio = JPEG_DECODE_SCALE_DOWN_1;
-#if  LV_COLOR_DEPTH == 32
+            if(sunxijpgd_load_file(&jpg_data, &jpg_data_size, fn) != 0) {
+                LV_LOG_WARN("sunxijpgd load file fail: %s", fn);
+                return LV_RES_INV;
+            }
+
+            JpegDecodeScaleDownRatio scaleRatio = LV_SJPG_HW_SCALE_RATIO;
+
+#if LV_COLOR_DEPTH == 32
             JpegDecodeOutputDataType outputDataTpe = JpegDecodeOutputDataARGB8888;
-#elif  LV_COLOR_DEPTH == 16
+#elif LV_COLOR_DEPTH == 16
             JpegDecodeOutputDataType outputDataTpe = JpegDecodeOutputDataRGB565;
 #else
 #error USE_HARDWARE_JPEGDECODER Unsupported LV_COLOR_DEPTH
 #endif
-            JpegDecoderSetDataSourceBuf(jpegdecoder, jpg_data, jpg_data_size, scaleRatio, outputDataTpe);
 
-            ImgFrame* imgFrame = JpegDecoderGetFrame(jpegdecoder);
-            lv_mem_free(jpg_data);   /*Free the loaded file*/
+            JpegDecoderSetDataSourceBuf(jpegdecoder, jpg_data, jpg_data_size, scaleRatio, outputDataTpe);
+            ImgFrame *imgFrame = JpegDecoderGetFrame(jpegdecoder);
+
+            lv_mem_free(jpg_data);
+
             if(imgFrame == NULL) {
-                LV_LOG_WARN("JpegDecoderGetFrame fail\n");
-                JpegDecoderDestory(jpegdecoder);
+                LV_LOG_WARN("JpegDecoderGetFrame fail (file=%s, size=%d, scale=%d)",
+                            fn, jpg_data_size, (int)scaleRatio);
+                /* GetFrame 失败时已自行 Destroy 了 mVideoDecoder，这里不要再 Destory 整个单例，
+                 * 否则下次 open 还要重建 memops/Plugin，且容易 use-after-free。 */
                 return LV_RES_INV;
             }
 
+            dsc->header.w = imgFrame->mDisplayWidth;
+            dsc->header.h = imgFrame->mDisplayHeight;
             dsc->img_data = imgFrame->mRGBData;
             return LV_RES_OK;
 #else
-
             lv_fs_file_t lv_file;
             lv_fs_res_t res = lv_fs_open(&lv_file, fn, LV_FS_MODE_RD);
             if(res != LV_FS_RES_OK) {
@@ -961,8 +1007,15 @@ end:
 static void decoder_close(lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * dsc)
 {
     LV_UNUSED(decoder);
+    LV_UNUSED(dsc);
 #ifdef USE_HARDWARE_JPEGDECODER
-    JpegDecoderDestory(jpegdecoder);
+    /* 硬解器是单例 jpegdecoder：每张图绘完后必须释放本次 VideoDecoder，
+     * 否则它持有的 ION DMA 堆会一直累积，几十~一百张就把 CMA 吃光，
+     * 表现是 cedarc CdcDmaheapAllocFd errno=12 (Out of memory)。 */
+    if(jpegdecoder) {
+        JpegDecoderReleaseSession(jpegdecoder);
+    }
+    return;
 #else
     /*Free all allocated data*/
 #ifdef LV_SUPPORT_PICTURE_VIEWER

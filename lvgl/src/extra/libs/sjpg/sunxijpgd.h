@@ -74,6 +74,9 @@ void JpegDecoderDestory(JpegDecoder* v);
 void JpegDecoderSetDataSourceBuf(JpegDecoder* v, char* buffer, int bufLen,
 		JpegDecodeScaleDownRatio scaleRatio, JpegDecodeOutputDataType outputType);
 ImgFrame *JpegDecoderGetFrame(JpegDecoder* v);
+/* 仅释放本次解码占用的 VideoDecoder（含 ION SBM 缓冲），保留 jpegdecoder 单例本身。
+ * 每张图绘完后必须调用，否则 ION DMA 堆会持续累积导致 CMA OOM。 */
+void JpegDecoderReleaseSession(JpegDecoder* v);
 
 #endif /*LV_USE_SJPG*/
 

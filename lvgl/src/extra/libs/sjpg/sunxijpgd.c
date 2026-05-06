@@ -553,6 +553,13 @@ ImgFrame *JpegDecoderGetFrame(JpegDecoder* v)
     }
 
     /**create the video decoder**/
+    /* 防御性清理：上一张图若没及时回收，先销毁旧 VideoDecoder + 释放它持有的 ION DMA 堆。
+     * 否则每次 GetFrame 都会覆盖 mVideoDecoder 指针，旧的 SBM 缓冲永久泄漏，
+     * 翻几页 jpg 就会触发 CdcDmaheapAllocFd: Out of memory。 */
+    if(p->mVideoDecoder != NULL) {
+        DestroyVideoDecoder(p->mVideoDecoder);
+        p->mVideoDecoder = NULL;
+    }
     p->mVideoDecoder = CreateVideoDecoder();
     if(!p->mVideoDecoder) {
         LV_LOG_WARN("create video decoder failed\n");
@@ -705,6 +712,21 @@ ImgFrame *JpegDecoderGetFrame(JpegDecoder* v)
     }
 
     return &p->mImgFrame;
+}
+
+void JpegDecoderReleaseSession(JpegDecoder* v)
+{
+    JpegDecoderContext* p = (JpegDecoderContext*)v;
+    if(p == NULL) return;
+
+    /* 只销毁本次解码用的 VideoDecoder，回收它内部的 ION SBM 缓冲。
+     * jpegdecoder 单例本身、memops 等保留，下张图重新 Create 即可。
+     * 注意：mImgFrame.mRGBData 不在这里释放——上层 LVGL 还在通过
+     * dsc->img_data 引用它做绘制，下次 GetFrame 入口会按需替换。 */
+    if(p->mVideoDecoder != NULL) {
+        DestroyVideoDecoder(p->mVideoDecoder);
+        p->mVideoDecoder = NULL;
+    }
 }
 
 #endif /*LV_USE_SJPG*/
