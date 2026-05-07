@@ -407,8 +407,8 @@ subpage_set(1);
 
 
     lv_obj_set_align(ui->g_kb_top_layer, LV_ALIGN_DEFAULT);
-    lv_obj_set_size(ui->g_kb_top_layer, 380, 380);
-    lv_obj_set_pos(ui->g_kb_top_layer, 45, 350);
+    lv_obj_set_size(ui->g_kb_top_layer, 360, 360);
+    lv_obj_set_pos(ui->g_kb_top_layer, 50, 350);
 
 
 
