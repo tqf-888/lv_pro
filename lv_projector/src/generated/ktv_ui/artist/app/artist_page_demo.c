@@ -148,7 +148,22 @@ void artist_page_demo_reset_to_page0(artist_page_demo_t *page, uint32_t total_co
     if (page == NULL) {
         return;
     }
-    printf("\n\n\n\n\n66666\n\n\n\n\n\n");
+
+    /*
+     * reset_to_page0 不只是 UI 回到顶部。
+     *
+     * 歌手类别切换后，page0 的 URL 会因为 subpage/name 等条件变化而变化；如果只
+     * reset adapter/catalog，image_manager 里的 page_requested/page_ready 和旧
+     * slot URL 还在，回到 page0 会被当成“JSON 已经拉过”，不会重新请求，也会继续
+     * 使用旧类别的图片缓存。
+     *
+     * 所以这里必须先 reset 媒体层：generation 递增、页请求状态清空、旧本地图片删除、
+     * slot meta 清空。正在路上的旧下载即使回来，也会因为 generation 不匹配被丢弃。
+     */
+    if (page->loader_inited) {
+        demo_ui_reset_all();
+    }
+
     lv_artist_adapter_reset(&page->adapter, total_count);
     if (page->vlist != NULL) {
         lv_vlist_scroll_to(page->vlist, 0U);
@@ -181,17 +196,18 @@ void app_open_artist_page(lv_obj_t *parent)
 {
     int ret;
     uint32_t total_count = 300;
-    /* batch_size 必须 >= 视口可见数（rows*cols），否则视口尾部 cell 永远拿不到 image path。
-     * 2x4 = 8，这里直接用视口大小。 */
-    uint32_t batch_size = g_lv_artist_style_2x4.visible_rows *
-                          g_lv_artist_style_2x4.visible_cols;
+    /*
+     * 服务端 JSON 一页 50 条。UI 一屏 2x4=8 条由 adapter 自己从 view_style 计算，
+     * 不要再把 8 当 json_page_size 传进去，否则 page/window 语义又会混在一起。
+     */
+    uint32_t json_page_size = 50U;
 
     app_ui_init();
 
     ret = artist_page_demo_open(&g_artist_page,
                                 parent,
                                 total_count,
-                                batch_size,
+                                json_page_size,
                                 &g_lv_artist_style_2x4);
     if (ret != 0) {
         printf("artist_page_demo_open failed:%d\n", ret);

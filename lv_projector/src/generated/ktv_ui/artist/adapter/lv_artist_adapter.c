@@ -26,14 +26,23 @@
  * 提前回填到 catalog，从而触发它们的 lv_img_set_src（这些 cell 在 vlist 物理
  * 层已经因为 overscan_rows_back=1 创建并 bind 了，只是位置在视口下方）。
  *
- * 注意：这个值只影响 UI 层的"预绑窗口"。网络层的预下载窗口仍然由
- * artist_calc_prefetch_window 控制（idle +2 页、前向 +3 页），不要因为这里
- * 改大了就去拓宽 demo_ui_scroll_range 的范围 —— 那会让 img_mgr 的
- * focus_slot_id 跑到很远，LRU 会先把当前页的 entry 淘汰掉，并且抢占当前页
- * 的下载并发。
+ * 注意：这个值只影响 UI 层的"预绑窗口"，按真实可见 cell 数计算，不能再拿
+ * json_page_size(常见 50) 来乘，否则 probe 会变成 100 个槽。
  */
 #ifndef ARTIST_PROBE_PAGES
 #define ARTIST_PROBE_PAGES 2U
+#endif
+
+#ifndef ARTIST_IMAGE_DOWNLOAD_PAGES
+/* 图片下载只追真实可见页 + 1 页 probe。JSON 可以预取几页，但图片不能跟着
+ * JSON 整页 50 张一起下，否则首屏/快滑会把 HTTP 队列打爆。 */
+#define ARTIST_IMAGE_DOWNLOAD_PAGES 2U
+#endif
+
+#ifndef ARTIST_READY_RETAIN_LIMIT
+/* 本地 READY 图片保留在 50-80 张量级；这里用 80，和 image_manager 的
+ * IMG_READY_FILE_LIMIT 默认值保持一致。 */
+#define ARTIST_READY_RETAIN_LIMIT 80U
 #endif
 
 #if ARTIST_ADAPTER_LOG_ENABLE
@@ -56,6 +65,10 @@ extern const char *demo_ui_get_image_path(uint32_t slot_id,
 /* image_manager 暴露的"可见范围"提示，用来让 need_image 通知给当前页打 HIGH 优先。
  * 这里 extern 声明而不直接 include image_manager.h 是为了不污染 adapter 头依赖。 */
 extern void img_mgr_set_visible_range(uint32_t start_slot_id, uint32_t end_slot_id);
+extern void img_mgr_set_image_active_range(uint32_t download_start_slot_id,
+                                           uint32_t download_end_slot_id,
+                                           uint32_t retain_start_slot_id,
+                                           uint32_t retain_end_slot_id);
 
 static lv_artist_adapter_t *g_artist_default = NULL;
 static uint32_t g_clicked_artist_id = 0U;
@@ -63,7 +76,11 @@ static char g_clicked_artist_name[LV_ARTIST_NAME_MAX] = {0};
 static uint8_t g_artist_jump_pending = 0U;
 
 static void artist_ensure_item_ready(lv_artist_adapter_t *adapter, uint32_t item_id);
-static void artist_prefetch_page_window(lv_artist_adapter_t *adapter, uint32_t page_start, uint32_t page_end);
+static void artist_prefetch_page_window(lv_artist_adapter_t *adapter,
+                                        uint32_t visible_start,
+                                        uint32_t visible_end,
+                                        uint32_t page_start,
+                                        uint32_t page_end);
 
 static uint32_t artist_safe_u32(uint32_t v, uint32_t defv)
 {
@@ -157,7 +174,7 @@ static void artist_probe_reset_for_page(lv_artist_adapter_t *adapter, uint32_t p
     adapter->probe_page_end = page_end;
 
     /*
-     * probe_slot_count 已经按 ARTIST_PROBE_PAGES * page_size 分配，
+     * probe_slot_count 已经按 ARTIST_PROBE_PAGES * ui_batch_size 分配，
      * 这里直接以 [page_start, page_start + probe_slot_count) 作为 UI 预绑窗口，
      * 不再用 page_end 截断（page_end 是当前可见页尾，会让下一页 cell 永远拿不到 path）。
      * 上限只受 total_count 约束；末页时第二段自然就是空 probe（artist_id=0），timer 会跳过。
@@ -175,25 +192,62 @@ static void artist_probe_reset_for_page(lv_artist_adapter_t *adapter, uint32_t p
     (void)page_end;
 }
 
-static void artist_prefetch_page_window(lv_artist_adapter_t *adapter, uint32_t page_start, uint32_t page_end)
+static void artist_prefetch_page_window(lv_artist_adapter_t *adapter,
+                                        uint32_t visible_start,
+                                        uint32_t visible_end,
+                                        uint32_t page_start,
+                                        uint32_t page_end)
 {
     uint32_t visible;
     uint32_t page_size;
     uint32_t page_index;
     uint32_t prefetch_start;
     uint32_t prefetch_end;
+    uint32_t download_start;
+    uint32_t download_end;
+    uint32_t retain_start;
+    uint32_t retain_end;
+    uint32_t retain_before;
+    uint32_t retain_after;
+    uint32_t download_slots;
 
     if (adapter == NULL || adapter->total_count == 0U) return;
 
     visible = artist_visible_count(adapter);
-    page_size = artist_safe_u32(adapter->ui_batch_size, visible);
+    page_size = artist_safe_u32(adapter->json_page_size, visible);
+    if (visible_start >= adapter->total_count) visible_start = adapter->total_count - 1U;
+    if (visible_end >= adapter->total_count) visible_end = adapter->total_count - 1U;
+    if (visible_end < visible_start) visible_end = visible_start;
     if (page_start >= adapter->total_count) return;
     if (page_end >= adapter->total_count) page_end = adapter->total_count - 1U;
 
     page_index = page_start / page_size;
     artist_calc_prefetch_window(adapter, page_start, page_end, page_size, &prefetch_start, &prefetch_end);
 
+    download_slots = visible * ARTIST_IMAGE_DOWNLOAD_PAGES;
+    if (download_slots < visible) download_slots = visible;
+    download_start = visible_start;
+    if (adapter->scroll_direction < 0) {
+        download_start = artist_sub_pages(visible_start, visible, ARTIST_IMAGE_DOWNLOAD_PAGES - 1U);
+        download_end = visible_end;
+    } else {
+        download_end = artist_add_pages_clamped(adapter, visible_end, visible, ARTIST_IMAGE_DOWNLOAD_PAGES - 1U);
+    }
+    if (download_end < download_start || (download_end - download_start + 1U) > download_slots) {
+        download_end = artist_add_pages_clamped(adapter, download_start, 1U, download_slots - 1U);
+    }
+
+    retain_before = visible * 2U;
+    if (ARTIST_READY_RETAIN_LIMIT > visible + retain_before) {
+        retain_after = ARTIST_READY_RETAIN_LIMIT - visible - retain_before;
+    } else {
+        retain_after = visible;
+    }
+    retain_start = (visible_start > retain_before) ? (visible_start - retain_before) : 0U;
+    retain_end = artist_add_pages_clamped(adapter, visible_end, 1U, retain_after);
+
     adapter->debug_last_page_index = page_index;
+    adapter->debug_last_visible_start = visible_start;
     ARTIST_LOGD("prefetch page=%u dir=%d visible_page=%u-%u request=%u-%u",
                 page_index,
                 adapter->scroll_direction,
@@ -202,23 +256,32 @@ static void artist_prefetch_page_window(lv_artist_adapter_t *adapter, uint32_t p
                 prefetch_start,
                 prefetch_end);
 
-    artist_probe_reset_for_page(adapter, page_start, page_end);
+    artist_probe_reset_for_page(adapter, visible_start, visible_end);
 
     /*
-     * 关键点：在 demo_ui_scroll_range 触发批量 access 之前，先告诉 image_manager
-     * "当前 UI 可见范围" = [page_start+1, page_end+1]（slot_id 是 1 基的）。
+     * 这里故意拆成三套范围，避免再把 json_page_size、ui_batch_size、page_end
+     * 混在一起：
      *
-     * 这样在 access / add_page_item 触发 need_image 时，落在这个范围内的 slot
-     * 会被 image_manager 标 high_priority=1，下沉到 ktv_ctrl 写入
-     * KtvRequest_t.priority = HIGH，最终在 http_pool 的 overflow 队列里插队
-     * 到队首。
+     * 1. visible_start/end：真实屏幕可见 cell，一般 2x4 = 8 个。只有这 8 个
+     *    是 HIGH 优先级，绝不能把 JSON 页尾 page_end(常见 50 个)当可见范围。
+     * 2. download_start/end：允许下载图片的小窗口，默认当前可见 + 下一屏 probe。
+     *    JSON 解析出 50 个 URL 时，只有落在这个窗口里的 slot 会发 need_image。
+     * 3. retain_start/end：本地 READY 文件保留窗口，离 UI 太远的图片由
+     *    image_manager 主动 remove；entry/URL 仍保留，需要时可重新下载。
      *
-     * 注意只标当前可见页，不标 prefetch 范围 —— 让预拉走 LOW，避免它和当前
-     * 页抢 4 路 worker。
+     * demo_ui_scroll_range 下面先按 JSON 页预取范围 access，用来提前请求 page
+     * JSON；图片是否下载由 download 窗口二次拦住。预取之后再 access 一次真实
+     * 可见范围，把 image_manager 的 focus_slot_id 拉回当前屏，避免删图策略
+     * 误以为焦点在 JSON 预取窗口的最远端。
      */
-    img_mgr_set_visible_range(page_start + 1U, page_end + 1U);
+    img_mgr_set_visible_range(visible_start + 1U, visible_end + 1U);
+    img_mgr_set_image_active_range(download_start + 1U,
+                                   download_end + 1U,
+                                   retain_start + 1U,
+                                   retain_end + 1U);
 
     demo_ui_scroll_range(prefetch_start + 1U, prefetch_end + 1U);
+    demo_ui_scroll_range(visible_start + 1U, visible_end + 1U);
 }
 
 static void artist_apply_image_path(lv_artist_adapter_t *adapter, uint32_t slot_id, const char *path)
@@ -239,13 +302,25 @@ static void artist_apply_image_path(lv_artist_adapter_t *adapter, uint32_t slot_
 static void artist_mark_loading(lv_artist_adapter_t *adapter, uint32_t slot_id, uint8_t loading)
 {
     lv_artist_item_t item;
+    uint8_t changed = 0U;
 
     if (adapter == NULL || slot_id >= adapter->total_count) return;
     artist_ensure_item_ready(adapter, slot_id);
     if (!lv_artist_catalog_get_item(&adapter->catalog, slot_id, &item)) return;
 
-    if (!item.avatar_ready) {
+    if (item.avatar_ready) {
+        /* image_manager 可能已经按保留窗口删掉远处本地文件。再次 probe 到这个
+         * slot 但 pull 不到 path 时，必须清掉 catalog 里的旧路径，避免 LVGL
+         * 继续渲染一个已经 remove 的 /tmp 文件。 */
+        item.avatar_ready = 0U;
+        item.avatar_local_path[0] = '\0';
+        changed = 1U;
+    }
+    if (item.avatar_loading != (loading ? 1U : 0U)) {
         item.avatar_loading = loading ? 1U : 0U;
+        changed = 1U;
+    }
+    if (changed != 0U) {
         (void)lv_artist_catalog_set_item_by_slot(&adapter->catalog, slot_id, &item);
         if (adapter->vlist != NULL) lv_vlist_notify_item_changed(adapter->vlist, slot_id);
     }
@@ -442,14 +517,15 @@ static void artist_ui_timer_cb(lv_timer_t *timer)
     end = start + visible - 1U;
     if (end >= adapter->total_count) end = adapter->total_count - 1U;
 
-    page_size = artist_safe_u32(adapter->ui_batch_size, visible);
+    page_size = artist_safe_u32(adapter->json_page_size, visible);
     page_index = start / page_size;
     page_start = page_index * page_size;
     page_end = page_start + page_size - 1U;
     if (page_end >= adapter->total_count) page_end = adapter->total_count - 1U;
 
-    if (adapter->debug_last_page_index != page_index) {
-        artist_prefetch_page_window(adapter, page_start, page_end);
+    if (adapter->debug_last_page_index != page_index ||
+        adapter->debug_last_visible_start != start) {
+        artist_prefetch_page_window(adapter, start, end, page_start, page_end);
     }
 
     for (i = 0U; i < adapter->probe_slot_count; ++i) {
@@ -503,8 +579,6 @@ int lv_artist_adapter_start(lv_artist_adapter_t *adapter,
                             uint32_t total_count,
                             uint32_t json_page_size)
 {
-    (void)json_page_size;
-
     if (adapter == NULL || view_style == NULL || total_count == 0U) return -1;
 
     memset(adapter, 0, sizeof(*adapter));
@@ -512,12 +586,17 @@ int lv_artist_adapter_start(lv_artist_adapter_t *adapter,
     g_clicked_artist_name[0] = '\0';
     adapter->view_style = view_style;
     adapter->total_count = total_count;
-    /* 兜底：ui_batch_size 必须 >= 视口可见 cell 数，否则 probe 队列覆盖不到视口尾部 */
+    /* 两个 size 分清：
+     * - json_page_size：服务端一页 JSON 有多少条，常见 50，只用于算 page_index。
+     * - ui_batch_size：屏幕真实一批 cell 数，2x4 就是 8，只用于 probe/UI 预绑。
+     * 以前把 ui_batch_size 设成 json_page_size，会让 probe_slots=100，首屏疯狂查图。 */
     {
         uint32_t visible = artist_visible_count(adapter);
-        adapter->ui_batch_size = (json_page_size >= visible) ? json_page_size : visible;
+        adapter->json_page_size = (json_page_size >= visible) ? json_page_size : visible;
+        adapter->ui_batch_size = visible;
     }
     adapter->debug_last_page_index = 0xFFFFFFFFU;
+    adapter->debug_last_visible_start = 0xFFFFFFFFU;
     adapter->last_top_index = 0U;
     adapter->last_scroll_tick = 0U;
     adapter->scroll_direction = 0;
@@ -627,11 +706,11 @@ void lv_artist_adapter_prime_first_screen(lv_artist_adapter_t *adapter)
     if (adapter == NULL || adapter->total_count == 0U) return;
 
     visible = artist_visible_count(adapter);
-    page_size = artist_safe_u32(adapter->ui_batch_size, visible);
+    page_size = artist_safe_u32(adapter->json_page_size, visible);
     page_end = page_size - 1U;
     if (page_end >= adapter->total_count) page_end = adapter->total_count - 1U;
 
-    artist_prefetch_page_window(adapter, 0U, page_end);
+    artist_prefetch_page_window(adapter, 0U, visible - 1U, 0U, page_end);
 }
 
 void lv_artist_adapter_reset(lv_artist_adapter_t *adapter, uint32_t total_count)
@@ -642,6 +721,7 @@ void lv_artist_adapter_reset(lv_artist_adapter_t *adapter, uint32_t total_count)
     (void)lv_artist_catalog_reset(&adapter->catalog, total_count);
     adapter->dirty_artist_count = 0U;
     adapter->debug_last_page_index = 0xFFFFFFFFU;
+    adapter->debug_last_visible_start = 0xFFFFFFFFU;
     adapter->has_hint_first_visible = 0U;
     adapter->hint_first_visible = 0U;
     adapter->last_top_index = 0U;

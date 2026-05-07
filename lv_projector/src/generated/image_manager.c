@@ -5,6 +5,12 @@
 #include <string.h>
 #include <pthread.h>
 
+#ifndef IMG_READY_FILE_LIMIT
+/* 本地 READY 图片文件的软上限。entry 可以多留一些保存 URL/名字，但图片文件
+ * 不应该等到 1000 个 entry 满了才删；歌手页默认把本地文件控制在 50-80 张量级。 */
+#define IMG_READY_FILE_LIMIT 80U
+#endif
+
 typedef pthread_mutex_t img_mutex_t;
 
 typedef struct
@@ -50,12 +56,24 @@ typedef struct
     uint32_t visible_start;
     uint32_t visible_end;
 
+    /* 图片下载窗口：JSON 解析只负责把 URL 写进 entry，只有落在这个窗口内的
+     * WAIT_IMAGE 才会真正发 need_image，避免一页 JSON 回来就启动 50 张下载。 */
+    uint32_t download_start;
+    uint32_t download_end;
+
+    /* 本地文件保留窗口：READY 图片如果离当前 UI 太远，会主动 remove(local_path)，
+     * 但 entry/URL 仍保留，重新进入 download 窗口后可以再次下载。 */
+    uint32_t retain_start;
+    uint32_t retain_end;
+
     img_entry_t entries[IMG_MAX_ENTRIES];
     img_page_slot_t pages[IMG_MAX_PAGES];
 } img_mgr_ctx_t;
 
 static img_mgr_ctx_t g_img_mgr;
 static __thread char g_pull_tls_path[IMG_PATH_MAX];
+
+static uint32_t img_distance(uint32_t a, uint32_t b);
 
 static uint32_t img_slot_to_page(uint32_t slot_id)
 {
@@ -107,6 +125,22 @@ static void img_reset_entry_locked(img_entry_t *e)
         return;
     }
     memset(e, 0, sizeof(*e));
+}
+
+static void img_drop_ready_file_locked(img_entry_t *e)
+{
+    if (e == NULL || e->local_path[0] == '\0')
+    {
+        return;
+    }
+
+    img_remove_file_locked(e->local_path);
+    e->local_path[0] = '\0';
+    if (e->state == IMG_STATE_READY)
+    {
+        e->state = IMG_STATE_WAIT_IMAGE;
+    }
+    e->need_image_sent = 0U;
 }
 
 static img_entry_t *img_find_entry_locked(uint32_t slot_id)
@@ -189,6 +223,86 @@ static int img_slot_in_visible_range(uint32_t slot_id)
     uint32_t e = g_img_mgr.visible_end;
     if (s == 0U || e == 0U || e < s) return 0;
     return (slot_id >= s && slot_id <= e) ? 1 : 0;
+}
+
+static int img_slot_in_download_range(uint32_t slot_id)
+{
+    uint32_t s = g_img_mgr.download_start;
+    uint32_t e = g_img_mgr.download_end;
+
+    /* 旧调用方没有设置 download 窗口时，保持原来的“都允许下载”语义。 */
+    if (s == 0U || e == 0U || e < s) return 1;
+    return (slot_id >= s && slot_id <= e) ? 1 : 0;
+}
+
+static int img_slot_in_retain_range(uint32_t slot_id)
+{
+    uint32_t s = g_img_mgr.retain_start;
+    uint32_t e = g_img_mgr.retain_end;
+
+    if (s == 0U || e == 0U || e < s) return 1;
+    return (slot_id >= s && slot_id <= e) ? 1 : 0;
+}
+
+static void img_prune_ready_files_locked(void)
+{
+    uint32_t i;
+    uint32_t ready_count = 0U;
+    uint32_t limit = img_item_count_limit();
+
+    /* 先删保留窗口外的本地文件：这是“超范围删远图”的主策略。 */
+    for (i = 0U; i < limit; ++i)
+    {
+        img_entry_t *e = &g_img_mgr.entries[i];
+        if (e->in_use && e->state == IMG_STATE_READY && e->local_path[0] != '\0' &&
+            !img_slot_in_retain_range(e->slot_id))
+        {
+            img_drop_ready_file_locked(e);
+        }
+    }
+
+    for (i = 0U; i < limit; ++i)
+    {
+        img_entry_t *e = &g_img_mgr.entries[i];
+        if (e->in_use && e->state == IMG_STATE_READY && e->local_path[0] != '\0')
+        {
+            ready_count++;
+        }
+    }
+
+    /* 如果保留窗口本身太宽，也按离 focus 最远优先删，避免本地文件无限涨。 */
+    while (ready_count > IMG_READY_FILE_LIMIT)
+    {
+        img_entry_t *victim = NULL;
+        uint32_t best_dist = 0U;
+
+        for (i = 0U; i < limit; ++i)
+        {
+            img_entry_t *e = &g_img_mgr.entries[i];
+            uint32_t dist;
+
+            if (!e->in_use || e->state != IMG_STATE_READY || e->local_path[0] == '\0')
+            {
+                continue;
+            }
+
+            dist = img_distance(e->slot_id, g_img_mgr.focus_slot_id);
+            if (victim == NULL || dist > best_dist ||
+                (dist == best_dist && e->last_touch < victim->last_touch))
+            {
+                victim = e;
+                best_dist = dist;
+            }
+        }
+
+        if (victim == NULL)
+        {
+            break;
+        }
+
+        img_drop_ready_file_locked(victim);
+        ready_count--;
+    }
 }
 
 static void img_notify_need_image_snapshot(uint32_t slot_id,
@@ -405,7 +519,8 @@ void img_mgr_access(uint32_t slot_id)
     if (entry != NULL)
     {
         img_touch_entry_locked(entry);
-        if (entry->state == IMG_STATE_WAIT_IMAGE && !entry->need_image_sent && entry->url[0] != '\0')
+        if (entry->state == IMG_STATE_WAIT_IMAGE && !entry->need_image_sent &&
+            entry->url[0] != '\0' && img_slot_in_download_range(slot_id))
         {
             entry->need_image_sent = 1U;
             need_notify = 1;
@@ -470,6 +585,52 @@ void img_mgr_set_visible_range(uint32_t start_slot_id, uint32_t end_slot_id)
         g_img_mgr.visible_start = start_slot_id;
         g_img_mgr.visible_end = end_slot_id;
     }
+    pthread_mutex_unlock(&g_img_mgr.lock);
+}
+
+void img_mgr_set_image_active_range(uint32_t download_start_slot_id,
+                                    uint32_t download_end_slot_id,
+                                    uint32_t retain_start_slot_id,
+                                    uint32_t retain_end_slot_id)
+{
+    if (!g_img_mgr.inited)
+    {
+        return;
+    }
+
+    /*
+     * 这两个窗口故意放在 image_manager，而不是散在 UI 里：
+     * - download 窗口控制“哪些 slot 可以发起图片下载”；
+     * - retain 窗口控制“哪些 READY 本地文件还值得保留”。
+     *
+     * JSON 页预取仍然可以比较激进，但图片下载和本地文件数量被这两个窗口卡住。
+     */
+    pthread_mutex_lock(&g_img_mgr.lock);
+    if (download_start_slot_id == 0U || download_end_slot_id == 0U ||
+        download_end_slot_id < download_start_slot_id)
+    {
+        g_img_mgr.download_start = 0U;
+        g_img_mgr.download_end = 0U;
+    }
+    else
+    {
+        g_img_mgr.download_start = download_start_slot_id;
+        g_img_mgr.download_end = download_end_slot_id;
+    }
+
+    if (retain_start_slot_id == 0U || retain_end_slot_id == 0U ||
+        retain_end_slot_id < retain_start_slot_id)
+    {
+        g_img_mgr.retain_start = 0U;
+        g_img_mgr.retain_end = 0U;
+    }
+    else
+    {
+        g_img_mgr.retain_start = retain_start_slot_id;
+        g_img_mgr.retain_end = retain_end_slot_id;
+    }
+
+    img_prune_ready_files_locked();
     pthread_mutex_unlock(&g_img_mgr.lock);
 }
 
@@ -611,7 +772,7 @@ int img_mgr_add_page_item(uint32_t generation,
     strncpy(entry->url, url, sizeof(entry->url) - 1U);
     img_touch_entry_locked(entry);
 
-    if (!entry->need_image_sent)
+    if (!entry->need_image_sent && img_slot_in_download_range(slot_id))
     {
         entry->need_image_sent = 1U;
         need_notify = 1;
@@ -663,6 +824,7 @@ int img_mgr_set_image_path(uint32_t generation,
     entry->local_path[sizeof(entry->local_path) - 1U] = '\0';
     entry->state = IMG_STATE_READY;
     img_touch_entry_locked(entry);
+    img_prune_ready_files_locked();
     pthread_mutex_unlock(&g_img_mgr.lock);
     return 0;
 }

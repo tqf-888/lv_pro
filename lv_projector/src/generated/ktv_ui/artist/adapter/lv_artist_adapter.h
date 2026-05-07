@@ -34,8 +34,10 @@ typedef struct {
     const lv_artist_view_style_t *view_style;
 
     uint32_t total_count;
+    uint32_t json_page_size;
     uint32_t ui_batch_size;
     uint32_t debug_last_page_index;
+    uint32_t debug_last_visible_start;
     uint32_t hint_first_visible;
     uint8_t has_hint_first_visible;
 

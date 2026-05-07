@@ -656,14 +656,27 @@ void artist_media_image_on_complete(KtvRequest_t *req,
         {
             path = req->local_path;
         }
-        (void)img_mgr_set_image_path(ctx->generation,
-                                     ctx->slot_id,
-                                     ctx->content_id,
-                                     path);
-        ARTIST_MEDIA_LOGD("image download ok: slot=%u content=%u gen=%u",
-                      ctx->slot_id,
-                      ctx->content_id,
-                      ctx->generation);
+        if (img_mgr_set_image_path(ctx->generation,
+                                   ctx->slot_id,
+                                   ctx->content_id,
+                                   path) != 0)
+        {
+            /* 图片回来时 slot 可能已经被 reset/淘汰/换代。管理器接不住时，
+             * 下载文件就没有 owner，必须立刻删掉，避免 /tmp 留孤儿图。 */
+            (void)remove(path);
+            ARTIST_MEDIA_LOGD("image dropped: slot=%u content=%u gen=%u path=%s",
+                          ctx->slot_id,
+                          ctx->content_id,
+                          ctx->generation,
+                          path);
+        }
+        else
+        {
+            ARTIST_MEDIA_LOGD("image download ok: slot=%u content=%u gen=%u",
+                          ctx->slot_id,
+                          ctx->content_id,
+                          ctx->generation);
+        }
     }
     else
     {

@@ -46,6 +46,9 @@ void demo_image_manager_init(void)
     memset(&cfg, 0, sizeof(cfg));
     artist_media_reset_slot_meta();
     cfg.page_size = 50;
+    /* max_cached_items 是“JSON 解析后的 slot 元数据/URL entry”上限，不是本地图片
+     * 文件上限。图片文件现在由 img_mgr_set_image_active_range 的 retain 窗口和
+     * IMG_READY_FILE_LIMIT 控制，默认 80 张左右就开始删远图。 */
     cfg.max_cached_items = 1000;
     cfg.max_cached_pages = 30;
     cfg.request_page = demo_request_page;

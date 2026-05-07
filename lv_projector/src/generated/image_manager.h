@@ -62,9 +62,9 @@ typedef int (*img_request_page_cb)(
  * high_priority：1 = 这张图正落在 UI 当前"可见范围"内，下载层应当尽快拉到；
  *                0 = 预拉/远景，按普通 FIFO 处理。
  *
- * "可见范围"由 img_mgr_set_visible_range() 设置，与下载是否提交无关，所以
- * 即便是页 JSON 回来的瞬间触发的首次 need_image，也能根据当前可见范围
- * 正确分类。
+ * "可见范围"只决定优先级，不决定是否下载；真正允许提交图片下载的是
+ * img_mgr_set_image_active_range() 里的 download 范围。这样 JSON 可以提前拉，
+ * 但 JSON 解析完成后不会把整页 50 张图都立刻提交下载。
  */
 typedef void (*img_need_image_cb)(
     void *user_ctx,
@@ -122,6 +122,23 @@ void img_mgr_access_range(uint32_t start_slot_id, uint32_t end_slot_id);
  * end < start 或 start == 0 表示清空，所有下载都走 LOW。
  */
 void img_mgr_set_visible_range(uint32_t start_slot_id, uint32_t end_slot_id);
+
+/*
+ * 设置图片层的两个窗口（slot_id 含端点，slot_id 是 1 基）：
+ *
+ * download_start/end：
+ *   只有落在这个窗口内的 WAIT_IMAGE slot 才会触发 need_image，避免“JSON
+ *   一回来就把整页 50 张图全下载”。0/0 表示兼容旧行为：所有 slot 都允许下载。
+ *
+ * retain_start/end：
+ *   本地文件保留窗口。READY 图片如果落在窗口外，会在设置窗口或新图片回填时
+ *   被主动删除，entry 的 URL/名字仍保留，之后重新进入 download 窗口可再下载。
+ *   0/0 表示不按范围主动删，只受内部 ready 文件数量上限保护。
+ */
+void img_mgr_set_image_active_range(uint32_t download_start_slot_id,
+                                    uint32_t download_end_slot_id,
+                                    uint32_t retain_start_slot_id,
+                                    uint32_t retain_end_slot_id);
 
 const char *img_mgr_pull_tls(uint32_t slot_id);
 int         img_mgr_pull_copy(uint32_t slot_id, char *buf, size_t buf_size);
