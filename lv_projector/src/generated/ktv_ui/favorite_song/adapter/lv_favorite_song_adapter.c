@@ -531,7 +531,7 @@ static void rs_on_item_click(void *user_ctx,
             a = 0;
         }
         ktv_cloud_order_resolve_first_play_param("16666666666",
-                                                "738ce11c448f23cd97b5e0a0ac901c4b",
+                                                "fbe29d501e94250e3442d14979913481",
                                                 a,   // 或 1
                                                 item.song_id,
                                                 p,

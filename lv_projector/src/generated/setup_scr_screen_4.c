@@ -1562,12 +1562,12 @@ void setup_scr_screen_4(lv_ui *ui)
     ui->screen_4_calendar_1 = lv_calendar_create(ui->screen_4_cont_42);
     screen_4_calendar_1_today.year = 2026;
     screen_4_calendar_1_today.month = 5;
-    screen_4_calendar_1_today.day = 6;
+    screen_4_calendar_1_today.day = 7;
     lv_calendar_set_today_date(ui->screen_4_calendar_1, screen_4_calendar_1_today.year, screen_4_calendar_1_today.month, screen_4_calendar_1_today.day);
     lv_calendar_set_showed_date(ui->screen_4_calendar_1, screen_4_calendar_1_today.year, screen_4_calendar_1_today.month);
     screen_4_calendar_1_highlihted_days[0].year = 2026;
     screen_4_calendar_1_highlihted_days[0].month = 5;
-    screen_4_calendar_1_highlihted_days[0].day = 7;
+    screen_4_calendar_1_highlihted_days[0].day = 8;
     lv_calendar_set_highlighted_dates(ui->screen_4_calendar_1, screen_4_calendar_1_highlihted_days, 1);
     lv_obj_t *screen_4_calendar_1_header = lv_calendar_header_arrow_create(ui->screen_4_calendar_1);
     lv_calendar_t *screen_4_calendar_1 = (lv_calendar_t *)ui->screen_4_calendar_1;

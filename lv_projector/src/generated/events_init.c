@@ -673,7 +673,7 @@ static void screen_7_btn_15_event_handler (lv_event_t *e)
     switch (code) {
     case LV_EVENT_CLICKED:
     {
-        page_nav_push("screen_100",&guider_ui.screen_100,&guider_ui.screen_100_del,setup_scr_screen_100);
+        page_nav_push("screen_101",&guider_ui.screen_101,&guider_ui.screen_101_del,setup_scr_screen_101);
         break;
     }
     default:

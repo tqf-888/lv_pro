@@ -53,7 +53,7 @@ void db_list_pro_worker_handle(int i1,
             memset(songinfo_json, 0, sizeof(songinfo_json));
 
             if (ktv_cloud_order_resolve_first_play_param_auto("16666666666",
-                                    "738ce11c448f23cd97b5e0a0ac901c4b",
+                                    "fbe29d501e94250e3442d14979913481",
                                     0,
                                     NULL,
                                     &resolved,
@@ -75,7 +75,7 @@ void db_list_pro_worker_handle(int i1,
             memset(songinfo_json, 0, sizeof(songinfo_json));
 
             if (ktv_cloud_order_resolve_first_play_param_auto("16666666666",
-                                    "738ce11c448f23cd97b5e0a0ac901c4b",
+                                    "fbe29d501e94250e3442d14979913481",
                                     0,
                                     NULL,
                                     &resolved,
@@ -105,7 +105,7 @@ void db_list_pro_worker_handle(int i1,
             memset(songinfo_json, 0, sizeof(songinfo_json));
 
             if (ktv_cloud_order_resolve_first_play_param_auto("16666666666",
-                                    "738ce11c448f23cd97b5e0a0ac901c4b",
+                                    "fbe29d501e94250e3442d14979913481",
                                     0,
                                     NULL,
                                     &resolved,
@@ -119,7 +119,7 @@ void db_list_pro_worker_handle(int i1,
                 memset(songinfo_json, 0, sizeof(songinfo_json));
 
                 if (ktv_cloud_order_resolve_first_play_param("16666666666",
-                                        "738ce11c448f23cd97b5e0a0ac901c4b",
+                                        "fbe29d501e94250e3442d14979913481",
                                         1,   // 或 1
                                         5897449,
                                         NULL,

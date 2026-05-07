@@ -224,7 +224,7 @@ int main(int argc, char *argv[])
     db_list_pro_thread_init(32, 32);
     db_list_pro_worker_register();
 
-    // ktv_get_token();
+    ktv_get_token();
 
     extern int auto_wifi_start(void);
     auto_wifi_start();

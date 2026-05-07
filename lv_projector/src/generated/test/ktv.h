@@ -117,7 +117,7 @@
 
 
 
-#define KTV_474575SEND_CODE "/sdkv2/cdkey/exchangeCode?cdkey_no=7892043293912&default_token=738ce11c448f23cd97b5e0a0ac901c4b"
+#define KTV_474575SEND_CODE "/sdkv2/cdkey/exchangeCode?cdkey_no=7892043293912&default_token=fbe29d501e94250e3442d14979913481"
 
 
 
