@@ -209,10 +209,6 @@ void setup_scr_screen_1(lv_ui *ui)
     lv_obj_set_style_clip_corner(ui->screen_1_img_26, true, LV_PART_MAIN|LV_STATE_DEFAULT);
 
     //The custom code of screen_1.
-    lv_obj_add_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);
-
-page_set(6);//不可以删
-
 
 
     //Update current screen layout.

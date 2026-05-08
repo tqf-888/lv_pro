@@ -64,7 +64,6 @@ void setup_scr_screen_101(lv_ui *ui)
     lv_obj_set_style_text_align(ui->screen_101_btn_1, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
 
     //The custom code of screen_101.
-    test_open_folder_browser(guider_ui.screen_101_cont_1);
 
 
 

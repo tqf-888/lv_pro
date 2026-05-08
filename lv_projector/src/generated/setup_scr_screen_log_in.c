@@ -264,22 +264,7 @@ void setup_scr_screen_log_in(lv_ui *ui)
     lv_obj_set_style_text_align(ui->screen_log_in_btn_5, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
 
     //The custom code of screen_log_in.
-    lv_obj_set_style_bg_color(ui->g_kb_top_layer, lv_color_hex(0x161619), LV_PART_MAIN);
-    /* 2. 按键背景（正常状态） */
-    lv_obj_set_style_bg_color  (ui->g_kb_top_layer, lv_color_hex(0x202125), LV_PART_ITEMS);
-    lv_obj_set_style_radius    (ui->g_kb_top_layer, 5,                      LV_PART_ITEMS); /* 圆角 */
-    lv_obj_set_style_text_color(ui->g_kb_top_layer, lv_color_hex(0xE4E4E4), LV_PART_ITEMS);
-    lv_obj_set_style_bg_color  (ui->g_kb_top_layer, lv_color_hex(0x202125), LV_PART_ITEMS | LV_STATE_CHECKED);
-    lv_obj_set_style_text_color(ui->g_kb_top_layer, lv_color_hex(0xE4E4E4), LV_PART_ITEMS | LV_STATE_CHECKED);
-    lv_obj_set_style_radius    (ui->g_kb_top_layer, 5,                      LV_PART_ITEMS | LV_STATE_CHECKED); /* 圆角 */
-    /* 4. 按键按下时的背景/文字 */
-    lv_obj_set_style_bg_color(ui->g_kb_top_layer, lv_color_hex(0x1C1D1E), LV_PART_ITEMS | LV_STATE_PRESSED);
-    lv_obj_set_style_text_color(ui->g_kb_top_layer, lv_color_hex(0xffffff), LV_PART_ITEMS | LV_STATE_PRESSED);
 
-
-    lv_obj_set_align(ui->g_kb_top_layer, LV_ALIGN_DEFAULT);
-    lv_obj_set_size(ui->g_kb_top_layer, 380, 380);
-    lv_obj_set_pos(ui->g_kb_top_layer, 258, 240);
 
 
 

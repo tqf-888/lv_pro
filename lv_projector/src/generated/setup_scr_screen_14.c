@@ -181,8 +181,6 @@ void setup_scr_screen_14(lv_ui *ui)
     lv_obj_set_style_clip_corner(ui->screen_14_img_13, true, LV_PART_MAIN|LV_STATE_DEFAULT);
 
     //The custom code of screen_14.
-    lv_obj_add_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);//键盘
-
 
 
 

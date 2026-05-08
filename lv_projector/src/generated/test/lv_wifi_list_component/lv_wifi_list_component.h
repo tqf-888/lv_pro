@@ -13,6 +13,9 @@ extern "C" {
 #define LV_WIFI_SSID_MAX_LEN 64
 #endif
 
+/* scan_cb 返回这个值表示：扫描已在后台启动，当前先不更新列表。 */
+#define LV_WIFI_LIST_SCAN_PENDING (-2)
+
 typedef struct lv_wifi_list_component lv_wifi_list_component_t;
 
 typedef struct {
@@ -26,7 +29,9 @@ typedef struct {
  *  - items: 组件提供的临时缓存
  *  - max_items: 最多可写入数量
  *  - user_data: 用户透传数据
- *  - 返回实际写入的 WiFi 数量，失败返回负数
+ *  - 返回实际写入的 WiFi 数量
+ *  - 返回 LV_WIFI_LIST_SCAN_PENDING 表示后台扫描中，UI 不阻塞
+ *  - 其它负数表示失败
  */
 typedef int (*lv_wifi_list_scan_cb_t)(lv_wifi_list_ap_t *items,
                                       int max_items,
@@ -78,9 +83,10 @@ lv_wifi_list_component_t *lv_wifi_list_create(lv_obj_t *screen,
 void lv_wifi_list_destroy(lv_wifi_list_component_t **comp);
 
 /*
- * 触发一次异步扫描。
+ * 触发一次扫描。
  * 返回：
  *   >=0 = 当前扫描到的 WiFi 数量
+ *   LV_WIFI_LIST_SCAN_PENDING = 后台扫描中
  *   -1  = 参数/scan_cb 错误或扫描失败
  */
 int lv_wifi_list_refresh(lv_wifi_list_component_t *comp);

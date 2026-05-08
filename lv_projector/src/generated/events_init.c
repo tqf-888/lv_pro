@@ -63,6 +63,21 @@ void events_init_screen_100 (lv_ui *ui)
     lv_obj_add_event_cb(ui->screen_100_btn_2, screen_100_btn_2_event_handler, LV_EVENT_ALL, ui);
 }
 
+static void screen_4_event_handler (lv_event_t *e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    switch (code) {
+    case LV_EVENT_SCREEN_LOADED:
+    {
+        app_wifi_list_open(guider_ui.screen_4_cont_43);
+        lv_keyboard_set_layout(guider_ui.g_kb_top_layer, LV_KEYBOARD_LAYOUT_QWERTY);
+        break;
+    }
+    default:
+        break;
+    }
+}
+
 static void screen_4_slider_7_event_handler (lv_event_t *e)
 {
     lv_event_code_t code = lv_event_get_code(e);
@@ -394,6 +409,7 @@ static void screen_4_btn_1_event_handler (lv_event_t *e)
 
 void events_init_screen_4 (lv_ui *ui)
 {
+    lv_obj_add_event_cb(ui->screen_4, screen_4_event_handler, LV_EVENT_ALL, ui);
     lv_obj_add_event_cb(ui->screen_4_slider_7, screen_4_slider_7_event_handler, LV_EVENT_ALL, ui);
     lv_obj_add_event_cb(ui->screen_4_ddlist_5, screen_4_ddlist_5_event_handler, LV_EVENT_ALL, ui);
     lv_obj_add_event_cb(ui->screen_4_ddlist_4, screen_4_ddlist_4_event_handler, LV_EVENT_ALL, ui);
@@ -422,6 +438,18 @@ static void screen_log_in_event_handler (lv_event_t *e)
     case LV_EVENT_SCREEN_LOADED:
     {
         lv_obj_clear_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_style_bg_color(guider_ui.g_kb_top_layer, lv_color_hex(0x161619), LV_PART_MAIN);
+        lv_obj_set_style_bg_color  (guider_ui.g_kb_top_layer, lv_color_hex(0x202125), LV_PART_ITEMS);
+        lv_obj_set_style_radius    (guider_ui.g_kb_top_layer, 5,                      LV_PART_ITEMS); /* 圆角 */
+        lv_obj_set_style_text_color(guider_ui.g_kb_top_layer, lv_color_hex(0xE4E4E4), LV_PART_ITEMS);
+        lv_obj_set_style_bg_color  (guider_ui.g_kb_top_layer, lv_color_hex(0x202125), LV_PART_ITEMS | LV_STATE_CHECKED);
+        lv_obj_set_style_text_color(guider_ui.g_kb_top_layer, lv_color_hex(0xE4E4E4), LV_PART_ITEMS | LV_STATE_CHECKED);
+        lv_obj_set_style_radius    (guider_ui.g_kb_top_layer, 5,                      LV_PART_ITEMS | LV_STATE_CHECKED); /* 圆角 */
+        lv_obj_set_style_bg_color(guider_ui.g_kb_top_layer, lv_color_hex(0x1C1D1E), LV_PART_ITEMS | LV_STATE_PRESSED);
+        lv_obj_set_style_text_color(guider_ui.g_kb_top_layer, lv_color_hex(0xffffff), LV_PART_ITEMS | LV_STATE_PRESSED);
+        lv_obj_set_align(guider_ui.g_kb_top_layer, LV_ALIGN_DEFAULT);
+        lv_obj_set_size(guider_ui.g_kb_top_layer, 380, 380);
+        lv_obj_set_pos(guider_ui.g_kb_top_layer, 258, 240);
         break;
     }
     default:
@@ -508,8 +536,9 @@ static void screen_2_event_handler (lv_event_t *e)
     case LV_EVENT_SCREEN_LOADED:
     {
         karaoke_demo_set_positions(LV_ALIGN_TOP_LEFT, 20, 520,LV_ALIGN_BOTTOM_RIGHT, -20, -120);
-
         db_list_pro_thread_send_to_worker(DBP_WORKER_MSG_set_video_pos, 2, 0, NULL, NULL, NULL);
+        lv_obj_add_flag(guider_ui.screen_2_cont_1, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);//键盘
         break;
     }
     default:
@@ -652,6 +681,28 @@ void events_init_screen_2 (lv_ui *ui)
     lv_obj_add_event_cb(ui->screen_2_btn_16, screen_2_btn_16_event_handler, LV_EVENT_ALL, ui);
 }
 
+static void screen_7_event_handler (lv_event_t *e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    switch (code) {
+    case LV_EVENT_SCREEN_LOADED:
+    {
+        karaoke_demo_set_positions(LV_ALIGN_TOP_LEFT, 4000, 4000,LV_ALIGN_BOTTOM_RIGHT, 4000, 4000);
+        extern void ktv_time_refresh_label_async(void);
+        ktv_time_refresh_label_async();
+        lv_obj_clear_flag(guider_ui.screen_7, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_add_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);//键盘
+        page_nav_register_home("home",
+                               &guider_ui.screen_7,
+                               &guider_ui.screen_7_del,
+                               setup_scr_screen_7);
+        break;
+    }
+    default:
+        break;
+    }
+}
+
 static void screen_7_btn_12_event_handler (lv_event_t *e)
 {
     lv_event_code_t code = lv_event_get_code(e);
@@ -725,6 +776,7 @@ static void screen_7_btn_11_event_handler (lv_event_t *e)
 
 void events_init_screen_7 (lv_ui *ui)
 {
+    lv_obj_add_event_cb(ui->screen_7, screen_7_event_handler, LV_EVENT_ALL, ui);
     lv_obj_add_event_cb(ui->screen_7_btn_12, screen_7_btn_12_event_handler, LV_EVENT_ALL, ui);
     lv_obj_add_event_cb(ui->screen_7_btn_15, screen_7_btn_15_event_handler, LV_EVENT_ALL, ui);
     lv_obj_add_event_cb(ui->screen_7_btn_16, screen_7_btn_16_event_handler, LV_EVENT_ALL, ui);
@@ -739,12 +791,14 @@ static void screen_8_event_handler (lv_event_t *e)
     case LV_EVENT_SCREEN_LOADED:
     {
         db_list_pro_thread_send_to_worker(DBP_WORKER_MSG_AUTO_PLAY, 0, 0, NULL, NULL, NULL);
-
         karaoke_demo_set_positions(LV_ALIGN_TOP_LEFT, 4000, 4000,LV_ALIGN_BOTTOM_RIGHT, 4000, 4000);
         db_list_pro_thread_send_to_worker(DBP_WORKER_MSG_set_video_pos, 1, 0, NULL, NULL, NULL);
-
         extern void ktv_time_refresh_label_async(void);
         ktv_time_refresh_label_async();
+        page_set(8);
+        lv_obj_clear_flag(guider_ui.screen_8, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_add_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);//键盘
+
         break;
     }
     default:
@@ -1047,9 +1101,28 @@ static void screen_3_event_handler (lv_event_t *e)
     switch (code) {
     case LV_EVENT_SCREEN_LOADED:
     {
-        lv_obj_clear_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);
-        demo_app_songs_list(guider_ui.screen_3_cont_3);
+         if(page_get() != 5)  page_manager_init();
         page_set(3);//不可以删，键盘事件要用
+        demo_app_songs_list(guider_ui.screen_3_cont_3);
+        karaoke_demo_set_positions(LV_ALIGN_TOP_LEFT, 1800, 1800, LV_ALIGN_BOTTOM_RIGHT, 1800, 1800);
+
+        lv_obj_clear_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_style_bg_color(guider_ui.g_kb_top_layer, lv_color_hex(0x161619), LV_PART_MAIN);
+        /* 2. 按键背景（正常状态） */
+        lv_obj_set_style_bg_color  (guider_ui.g_kb_top_layer, lv_color_hex(0x202125), LV_PART_ITEMS);
+        lv_obj_set_style_radius    (guider_ui.g_kb_top_layer, 5,                      LV_PART_ITEMS); /* 圆角 */
+        lv_obj_set_style_text_color(guider_ui.g_kb_top_layer, lv_color_hex(0xE4E4E4), LV_PART_ITEMS);
+        lv_obj_set_style_bg_color  (guider_ui.g_kb_top_layer, lv_color_hex(0x202125), LV_PART_ITEMS | LV_STATE_CHECKED);
+        lv_obj_set_style_text_color(guider_ui.g_kb_top_layer, lv_color_hex(0xE4E4E4), LV_PART_ITEMS | LV_STATE_CHECKED);
+        lv_obj_set_style_radius    (guider_ui.g_kb_top_layer, 5,                      LV_PART_ITEMS | LV_STATE_CHECKED); /* 圆角 */
+        /* 4. 按键按下时的背景/文字 */
+        lv_obj_set_style_bg_color(guider_ui.g_kb_top_layer, lv_color_hex(0x1C1D1E), LV_PART_ITEMS | LV_STATE_PRESSED);
+        lv_obj_set_style_text_color(guider_ui.g_kb_top_layer, lv_color_hex(0xffffff), LV_PART_ITEMS | LV_STATE_PRESSED);
+        lv_obj_set_align(guider_ui.g_kb_top_layer, LV_ALIGN_DEFAULT);
+        lv_obj_set_size(guider_ui.g_kb_top_layer, 380, 380);
+        lv_obj_set_pos(guider_ui.g_kb_top_layer, 35, 275);
+
+
         break;
     }
     default:
@@ -1120,8 +1193,30 @@ static void screen_5_event_handler (lv_event_t *e)
     switch (code) {
     case LV_EVENT_SCREEN_LOADED:
     {
-        lv_obj_clear_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);
+        page_manager_init();
+        page_set(5);
+        subpage_set(1);
         app_open_artist_page(guider_ui.screen_5_cont_3);
+
+        lv_obj_set_style_bg_color(guider_ui.g_kb_top_layer, lv_color_hex(0x161619), LV_PART_MAIN);
+        /* 2. 按键背景（正常状态） */
+        lv_obj_set_style_bg_color  (guider_ui.g_kb_top_layer, lv_color_hex(0x202125), LV_PART_ITEMS);
+        lv_obj_set_style_radius    (guider_ui.g_kb_top_layer, 5,                      LV_PART_ITEMS); /* 圆角 */
+        lv_obj_set_style_text_color(guider_ui.g_kb_top_layer, lv_color_hex(0xE4E4E4), LV_PART_ITEMS);
+        lv_obj_set_style_bg_color  (guider_ui.g_kb_top_layer, lv_color_hex(0x202125), LV_PART_ITEMS | LV_STATE_CHECKED);
+        lv_obj_set_style_text_color(guider_ui.g_kb_top_layer, lv_color_hex(0xE4E4E4), LV_PART_ITEMS | LV_STATE_CHECKED);
+        lv_obj_set_style_radius    (guider_ui.g_kb_top_layer, 5,                      LV_PART_ITEMS | LV_STATE_CHECKED); /* 圆角 */
+        /* 4. 按键按下时的背景/文字 */
+        lv_obj_set_style_bg_color(guider_ui.g_kb_top_layer, lv_color_hex(0x1C1D1E), LV_PART_ITEMS | LV_STATE_PRESSED);
+        lv_obj_set_style_text_color(guider_ui.g_kb_top_layer, lv_color_hex(0xffffff), LV_PART_ITEMS | LV_STATE_PRESSED);
+
+
+        lv_obj_set_align(guider_ui.g_kb_top_layer, LV_ALIGN_DEFAULT);
+        lv_obj_set_size(guider_ui.g_kb_top_layer, 360, 360);
+        lv_obj_set_pos(guider_ui.g_kb_top_layer, 50, 350);
+
+        lv_obj_clear_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);
+
         break;
     }
     default:
@@ -1269,6 +1364,20 @@ void events_init_screen_5 (lv_ui *ui)
     lv_obj_add_event_cb(ui->screen_5_imgbtn_5, screen_5_imgbtn_5_event_handler, LV_EVENT_ALL, ui);
 }
 
+static void screen_13_event_handler (lv_event_t *e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    switch (code) {
+    case LV_EVENT_SCREEN_LOADED:
+    {
+        karaoke_demo_set_positions(LV_ALIGN_TOP_LEFT, 4000, 4000,LV_ALIGN_BOTTOM_RIGHT, 4000, 4000);
+        break;
+    }
+    default:
+        break;
+    }
+}
+
 static void screen_13_btn_1_event_handler (lv_event_t *e)
 {
     lv_event_code_t code = lv_event_get_code(e);
@@ -1285,6 +1394,7 @@ static void screen_13_btn_1_event_handler (lv_event_t *e)
 
 void events_init_screen_13 (lv_ui *ui)
 {
+    lv_obj_add_event_cb(ui->screen_13, screen_13_event_handler, LV_EVENT_ALL, ui);
     lv_obj_add_event_cb(ui->screen_13_btn_1, screen_13_btn_1_event_handler, LV_EVENT_ALL, ui);
 }
 
@@ -1294,8 +1404,26 @@ static void screen_8_1_event_handler (lv_event_t *e)
     switch (code) {
     case LV_EVENT_SCREEN_LOADED:
     {
+        //page_manager_init();
         lv_obj_clear_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);
         demo_app_songs_list(guider_ui.screen_8_1_cont_2);
+
+        lv_obj_set_style_bg_color(guider_ui.g_kb_top_layer, lv_color_hex(0x161619), LV_PART_MAIN);
+        /* 2. 按键背景（正常状态） */
+        lv_obj_set_style_bg_color  (guider_ui.g_kb_top_layer, lv_color_hex(0x202125), LV_PART_ITEMS);
+        lv_obj_set_style_radius    (guider_ui.g_kb_top_layer, 5,                      LV_PART_ITEMS); /* 圆角 */
+        lv_obj_set_style_text_color(guider_ui.g_kb_top_layer, lv_color_hex(0xE4E4E4), LV_PART_ITEMS);
+        lv_obj_set_style_bg_color  (guider_ui.g_kb_top_layer, lv_color_hex(0x202125), LV_PART_ITEMS | LV_STATE_CHECKED);
+        lv_obj_set_style_text_color(guider_ui.g_kb_top_layer, lv_color_hex(0xE4E4E4), LV_PART_ITEMS | LV_STATE_CHECKED);
+        lv_obj_set_style_radius    (guider_ui.g_kb_top_layer, 5,                      LV_PART_ITEMS | LV_STATE_CHECKED); /* 圆角 */
+        /* 4. 按键按下时的背景/文字 */
+        lv_obj_set_style_bg_color(guider_ui.g_kb_top_layer, lv_color_hex(0x1C1D1E), LV_PART_ITEMS | LV_STATE_PRESSED);
+        lv_obj_set_style_text_color(guider_ui.g_kb_top_layer, lv_color_hex(0xffffff), LV_PART_ITEMS | LV_STATE_PRESSED);
+
+
+        lv_obj_set_align(guider_ui.g_kb_top_layer, LV_ALIGN_DEFAULT);
+        lv_obj_set_size(guider_ui.g_kb_top_layer, 380, 380);
+        lv_obj_set_pos(guider_ui.g_kb_top_layer, 45, 350);
         break;
     }
     default:
@@ -1333,6 +1461,8 @@ static void screen_14_event_handler (lv_event_t *e)
     case LV_EVENT_SCREEN_LOADED:
     {
         demo_app_favorite_songs_list(guider_ui.screen_14_cont_4);
+        lv_obj_add_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);//键盘
+
         break;
     }
     default:
@@ -1384,6 +1514,8 @@ static void screen_1_event_handler (lv_event_t *e)
     {
         demo_app_top100_songs_list(guider_ui.screen_1_cont_11);
         demo_app_order_songs_list(guider_ui.screen_1_cont_10);
+        lv_obj_add_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);
+        page_set(6);//不可以删
         break;
     }
     default:
@@ -1453,7 +1585,12 @@ static void screen_11_event_handler (lv_event_t *e)
     switch (code) {
     case LV_EVENT_SCREEN_LOADED:
     {
+        page_manager_init();
+        subpage_set(1);
         demo_app_songs_list(guider_ui.screen_11_cont_4);
+        extern void lv_page_reflash_all(void);
+        lv_page_reflash_all();
+        lv_obj_add_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);//键盘
         break;
     }
     default:
@@ -1489,7 +1626,10 @@ static void screen_9_event_handler (lv_event_t *e)
     switch (code) {
     case LV_EVENT_SCREEN_LOADED:
     {
+        page_manager_init();
+        subpage_set(1);
         demo_app_rank_list(guider_ui.screen_9_cont_4);
+        lv_obj_add_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);//键盘
         break;
     }
     default:
@@ -1570,8 +1710,9 @@ static void screen_10_event_handler (lv_event_t *e)
     switch (code) {
     case LV_EVENT_SCREEN_LOADED:
     {
-
+        lv_obj_add_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);//键盘
         demo_app_order_songs_list(guider_ui.screen_10_cont_1);
+        page_set(10);//不可以删
         break;
     }
     default:
@@ -1615,6 +1756,21 @@ void events_init_screen_10 (lv_ui *ui)
     lv_obj_add_event_cb(ui->screen_10_btn_12, screen_10_btn_12_event_handler, LV_EVENT_ALL, ui);
 }
 
+static void screen_101_event_handler (lv_event_t *e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    switch (code) {
+    case LV_EVENT_SCREEN_LOADED:
+    {
+        test_open_folder_browser(guider_ui.screen_101_cont_1);
+
+        break;
+    }
+    default:
+        break;
+    }
+}
+
 static void screen_101_btn_1_event_handler (lv_event_t *e)
 {
     lv_event_code_t code = lv_event_get_code(e);
@@ -1632,7 +1788,22 @@ static void screen_101_btn_1_event_handler (lv_event_t *e)
 
 void events_init_screen_101 (lv_ui *ui)
 {
+    lv_obj_add_event_cb(ui->screen_101, screen_101_event_handler, LV_EVENT_ALL, ui);
     lv_obj_add_event_cb(ui->screen_101_btn_1, screen_101_btn_1_event_handler, LV_EVENT_ALL, ui);
+}
+
+static void screen_102_event_handler (lv_event_t *e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    switch (code) {
+    case LV_EVENT_SCREEN_LOADED:
+    {
+        lv_obj_add_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);
+        break;
+    }
+    default:
+        break;
+    }
 }
 
 static void screen_102_btn_1_event_handler (lv_event_t *e)
@@ -1665,6 +1836,7 @@ static void screen_102_btn_3_event_handler (lv_event_t *e)
 
 void events_init_screen_102 (lv_ui *ui)
 {
+    lv_obj_add_event_cb(ui->screen_102, screen_102_event_handler, LV_EVENT_ALL, ui);
     lv_obj_add_event_cb(ui->screen_102_btn_1, screen_102_btn_1_event_handler, LV_EVENT_ALL, ui);
     lv_obj_add_event_cb(ui->screen_102_btn_3, screen_102_btn_3_event_handler, LV_EVENT_ALL, ui);
 }

@@ -1748,8 +1748,7 @@ void setup_scr_screen_4(lv_ui *ui)
     lv_obj_set_style_text_align(ui->screen_4_btn_1, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
 
     //The custom code of screen_4.
-    app_wifi_list_open(guider_ui.screen_4_cont_43);
-lv_keyboard_set_layout(guider_ui.g_kb_top_layer, LV_KEYBOARD_LAYOUT_QWERTY);
+
 
 
 

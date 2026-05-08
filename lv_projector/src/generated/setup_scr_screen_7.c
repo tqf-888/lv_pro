@@ -327,16 +327,7 @@ void setup_scr_screen_7(lv_ui *ui)
     lv_obj_set_style_text_align(ui->screen_7_btn_11, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
 
     //The custom code of screen_7.
-    lv_obj_clear_flag(guider_ui.screen_7, LV_OBJ_FLAG_SCROLLABLE);
-extern void ktv_time_refresh_label_async(void);
-ktv_time_refresh_label_async();
-    lv_obj_add_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);//键盘
-karaoke_demo_set_positions(LV_ALIGN_TOP_LEFT, 4000, 4000,LV_ALIGN_BOTTOM_RIGHT, 4000, 4000);
 
-    page_nav_register_home("home",
-                           &guider_ui.screen_7,
-                           &guider_ui.screen_7_del,
-                           setup_scr_screen_7);
 
     //Update current screen layout.
     lv_obj_update_layout(ui->screen_7);

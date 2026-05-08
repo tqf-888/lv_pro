@@ -24,21 +24,21 @@ void lv_rich_song_default_style_init(void)
     g_lv_rich_song_default_style.preload_after = 24;
 
     /*
-     * 目标尺寸：840 x 670
+     * 行距收紧版：840 x 631
      * 8 行铺满高度：
-     * 8 * 82 + 7 * 2 = 670
+     * 8 * 78 + 7 * 1 = 631
      */
     g_lv_rich_song_default_style.viewport_width = 840;
-    g_lv_rich_song_default_style.viewport_height = 670;
+    g_lv_rich_song_default_style.viewport_height = 631;
 
     g_lv_rich_song_default_style.cell_width = 840;
-    g_lv_rich_song_default_style.cell_height = 82;
+    g_lv_rich_song_default_style.cell_height = 78;
 
     g_lv_rich_song_default_style.gap_x = 0;
-    g_lv_rich_song_default_style.gap_y = 2;
+    g_lv_rich_song_default_style.gap_y = 1;
 
     g_lv_rich_song_default_style.row_style.cell_width = 840;
-    g_lv_rich_song_default_style.row_style.cell_height = 82;
+    g_lv_rich_song_default_style.row_style.cell_height = 78;
 
     /* 左侧序号 */
     g_lv_rich_song_default_style.row_style.idx_x = 12;
@@ -74,8 +74,8 @@ void lv_rich_song_default_style_init(void)
     g_lv_rich_song_default_style.row_style.f_x = 790;
     g_lv_rich_song_default_style.row_style.f_w = 40;
 
-    /* 文字整体下移一点，适配 82 高度 */
-    g_lv_rich_song_default_style.row_style.text_y = 24;
+    /* 文字整体下移一点，适配 78 高度 */
+    g_lv_rich_song_default_style.row_style.text_y = 22;
 
     g_lv_rich_song_default_style.row_style.bg_color = lv_color_hex(0x000000);
     g_lv_rich_song_default_style.row_style.bg_opa = LV_OPA_TRANSP;

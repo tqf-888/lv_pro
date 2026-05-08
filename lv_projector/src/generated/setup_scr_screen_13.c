@@ -84,7 +84,6 @@ void setup_scr_screen_13(lv_ui *ui)
     lv_obj_set_style_clip_corner(ui->screen_13_img_2, true, LV_PART_MAIN|LV_STATE_DEFAULT);
 
     //The custom code of screen_13.
-    karaoke_demo_set_positions(LV_ALIGN_TOP_LEFT, 4000, 4000,LV_ALIGN_BOTTOM_RIGHT, 4000, 4000);
 
 
 

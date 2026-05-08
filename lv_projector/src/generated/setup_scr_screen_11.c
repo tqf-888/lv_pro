@@ -195,52 +195,6 @@ void setup_scr_screen_11(lv_ui *ui)
     lv_obj_set_style_radius(ui->screen_11_img_15, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_clip_corner(ui->screen_11_img_15, true, LV_PART_MAIN|LV_STATE_DEFAULT);
 
-    //Write codes screen_11_btn_7
-    ui->screen_11_btn_7 = lv_btn_create(ui->screen_11);
-    ui->screen_11_btn_7_label = lv_label_create(ui->screen_11_btn_7);
-    lv_label_set_text(ui->screen_11_btn_7_label, "play\n");
-    lv_label_set_long_mode(ui->screen_11_btn_7_label, LV_LABEL_LONG_WRAP);
-    lv_obj_align(ui->screen_11_btn_7_label, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_set_style_pad_all(ui->screen_11_btn_7, 0, LV_STATE_DEFAULT);
-    lv_obj_set_width(ui->screen_11_btn_7_label, LV_PCT(100));
-    lv_obj_set_pos(ui->screen_11_btn_7, 1312, 180);
-    lv_obj_set_size(ui->screen_11_btn_7, 100, 50);
-
-    //Write style for screen_11_btn_7, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
-    lv_obj_set_style_bg_opa(ui->screen_11_btn_7, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(ui->screen_11_btn_7, lv_color_hex(0x2195f6), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_grad_dir(ui->screen_11_btn_7, LV_GRAD_DIR_NONE, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(ui->screen_11_btn_7, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_radius(ui->screen_11_btn_7, 5, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_shadow_width(ui->screen_11_btn_7, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_color(ui->screen_11_btn_7, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_11_btn_7, &lv_font_montserratMedium_16, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_opa(ui->screen_11_btn_7, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_align(ui->screen_11_btn_7, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
-
-    //Write codes screen_11_btn_6
-    ui->screen_11_btn_6 = lv_btn_create(ui->screen_11);
-    ui->screen_11_btn_6_label = lv_label_create(ui->screen_11_btn_6);
-    lv_label_set_text(ui->screen_11_btn_6_label, "AI_MV\n");
-    lv_label_set_long_mode(ui->screen_11_btn_6_label, LV_LABEL_LONG_WRAP);
-    lv_obj_align(ui->screen_11_btn_6_label, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_set_style_pad_all(ui->screen_11_btn_6, 0, LV_STATE_DEFAULT);
-    lv_obj_set_width(ui->screen_11_btn_6_label, LV_PCT(100));
-    lv_obj_set_pos(ui->screen_11_btn_6, 1319, 301);
-    lv_obj_set_size(ui->screen_11_btn_6, 100, 50);
-
-    //Write style for screen_11_btn_6, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
-    lv_obj_set_style_bg_opa(ui->screen_11_btn_6, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(ui->screen_11_btn_6, lv_color_hex(0x2195f6), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_grad_dir(ui->screen_11_btn_6, LV_GRAD_DIR_NONE, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(ui->screen_11_btn_6, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_radius(ui->screen_11_btn_6, 5, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_shadow_width(ui->screen_11_btn_6, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_color(ui->screen_11_btn_6, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_11_btn_6, &lv_font_montserratMedium_16, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_opa(ui->screen_11_btn_6, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_align(ui->screen_11_btn_6, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
-
     //Write codes screen_11_img_2
     ui->screen_11_img_2 = lv_img_create(ui->screen_11);
     lv_obj_add_flag(ui->screen_11_img_2, LV_OBJ_FLAG_CLICKABLE);
@@ -257,12 +211,7 @@ void setup_scr_screen_11(lv_ui *ui)
     lv_obj_set_style_clip_corner(ui->screen_11_img_2, true, LV_PART_MAIN|LV_STATE_DEFAULT);
 
     //The custom code of screen_11.
-    page_manager_init();
-subpage_set(1);
 
-extern void lv_page_reflash_all(void);
-lv_page_reflash_all();
-    lv_obj_add_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);//键盘
 
 
 

@@ -106,11 +106,11 @@ static void ktv_time_service_tick_hook(uint32_t now_sec, const char *reason, voi
     /* Update show string first, then log the same "show". */
     ktv_time_update_show_and_async_ui(now_sec);
 
-    printf("[KTV_TIME] %s utc=%u beijing=%s show=%s\n",
-           (reason != NULL) ? reason : "log",
-           (unsigned)now_sec,
-           time_buf,
-           g_ktv_time_show);
+    // printf("[KTV_TIME] %s utc=%u beijing=%s show=%s\n",
+    //        (reason != NULL) ? reason : "log",
+    //        (unsigned)now_sec,
+    //        time_buf,
+    //        g_ktv_time_show);
 }
 
 static pthread_t g_bootstrap_thread;

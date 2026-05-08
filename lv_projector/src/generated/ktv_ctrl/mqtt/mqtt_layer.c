@@ -3,7 +3,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <time.h>
 #include <mosquitto.h>
+#include "cJSON.h"
 #include "biz_parser.h"
 
 #define BROKER     "8.135.14.22"
@@ -16,12 +18,77 @@
 #define TOPIC_PUB_1  "device/maku-boot/16666666666"
 
 #define TOPIC_SUB_2  "device/control/16666666666"
-#define TOPIC_PUB_2  "device/maku-boot/16666666666"   // 按 cloud/device 对应规律推断的回复 Topic
+#define TOPIC_PUB_2  "device/maku-boot/16666666666"
 
 #define CLIENT_ID  "c_client_16666666666"
 #define QOS        1
 
 static struct mosquitto *mosq = NULL;
+
+static long long mqtt_now_ms(void) {
+    return (long long)time(NULL) * 1000LL;
+}
+
+static int mqtt_play_status_from_action(const char *action) {
+    if (action == NULL) return 0;
+    if (strcmp(action, "pause") == 0) return 2;
+    if (strcmp(action, "play") == 0) return 1;
+    if (strcmp(action, "continue") == 0) return 1;
+    if (strcmp(action, "next") == 0) return 1;
+    if (strcmp(action, "replay") == 0) return 1;
+    return 0;
+}
+
+static void mqtt_publish_device_control_ack(struct mosquitto *mosq, const char *payload_str) {
+    cJSON *root = cJSON_Parse(payload_str);
+    if (root == NULL) return;
+
+    cJSON *cmd = cJSON_GetObjectItem(root, "cmd");
+    cJSON *msg_id = cJSON_GetObjectItem(root, "msgId");
+    cJSON *payload = cJSON_GetObjectItem(root, "payload");
+    cJSON *action = payload ? cJSON_GetObjectItem(payload, "action") : NULL;
+
+    if (!cJSON_IsString(cmd) || strcmp(cmd->valuestring, "deviceControl") != 0 ||
+        !cJSON_IsString(msg_id) || !cJSON_IsString(action)) {
+        cJSON_Delete(root);
+        return;
+    }
+
+    int play_status = mqtt_play_status_from_action(action->valuestring);
+
+    cJSON *reply = cJSON_CreateObject();
+    cJSON *reply_payload = cJSON_CreateObject();
+    if (reply == NULL || reply_payload == NULL) {
+        cJSON_Delete(reply);
+        cJSON_Delete(reply_payload);
+        cJSON_Delete(root);
+        return;
+    }
+
+    cJSON_AddStringToObject(reply, "cmd", "deviceControl");
+    cJSON_AddNumberToObject(reply, "t", mqtt_now_ms());
+    cJSON_AddStringToObject(reply, "msgId", msg_id->valuestring);
+    cJSON_AddNumberToObject(reply, "responseCode", 0);
+    cJSON_AddStringToObject(reply_payload, "action", action->valuestring);
+    cJSON_AddNumberToObject(reply_payload, "playStatus", play_status);
+    cJSON_AddItemToObject(reply, "payload", reply_payload);
+
+    char *reply_str = cJSON_PrintUnformatted(reply);
+    if (reply_str != NULL) {
+        int ret = mosquitto_publish(mosq, NULL, TOPIC_PUB_2,
+                                    (int)strlen(reply_str), reply_str,
+                                    QOS, 0);
+        if (ret == MOSQ_ERR_SUCCESS) {
+            printf("[MQTT-send>%s>] %s\n", TOPIC_PUB_2, reply_str);
+        } else {
+            printf("[MQTT-send] 发送失败, 错误码: %d\n", ret);
+        }
+        free(reply_str);
+    }
+
+    cJSON_Delete(reply);
+    cJSON_Delete(root);
+}
 
 static void on_connect(struct mosquitto *mosq, void *obj, int rc) {
     if (rc == 0) {
@@ -41,42 +108,23 @@ static void on_disconnect(struct mosquitto *mosq, void *obj, int rc) {
 
 static void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_message *message) {
     if (message->payloadlen <= 0) return;
-    
+
     char *payload_str = malloc(message->payloadlen + 1);
+    if (payload_str == NULL) return;
+
     memcpy(payload_str, message->payload, message->payloadlen);
     payload_str[message->payloadlen] = '\0';
-    
+
     printf("[MQTT-recv<%s>] %s\n", message->topic, payload_str);
 
-    /* ---------- 1. 业务解析（将 topic 传给业务层） ---------- */
     biz_parse(message->topic, payload_str);
 
-    /* ---------- 2. 回复逻辑调整（防止自己收到自己发的消息） ---------- */
-    const char *reply_topic = NULL;
-    int need_reply = 0; // 增加一个是否需要回复的标志
-
-    if (strcmp(message->topic, TOPIC_SUB_1) == 0) {
-        // 云端下发的歌单消息：如果业务需要回复 ACK，在这里组装新的 JSON 回复
-        // 假设云端不需要原样回复，这里设为 0
-        need_reply = 0; 
-    } else if (strcmp(message->topic, TOPIC_SUB_2) == 0) {
-        // 设备控制指令：千万不要原样发回 cloud/maku-boot，否则会再次触发 on_message
-        // 如果一定要回复状态，应该组装一个 {"cmd":"deviceControlAck", ...} 的独立报文
-        need_reply = 0; 
-    }
-
-    if (need_reply && reply_topic != NULL) {
-        int ret = mosquitto_publish(mosq, NULL, reply_topic, message->payloadlen, payload_str, QOS, false);
-        if (ret == MOSQ_ERR_SUCCESS) {
-            printf("[MQTT-send>%s>] %s\n", reply_topic, payload_str);
-        } else {
-            printf("[MQTT-send] 发送失败, 错误码: %d\n", ret);
-        }
+    if (strcmp(message->topic, TOPIC_SUB_2) == 0) {
+        mqtt_publish_device_control_ack(mosq, payload_str);
     }
 
     free(payload_str);
 }
-
 
 static void *mqtt_thread_task(void *arg) {
     mosquitto_lib_init();

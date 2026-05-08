@@ -65,8 +65,8 @@ void setup_scr_screen_9(lv_ui *ui)
 
     //Write codes screen_9_cont_4
     ui->screen_9_cont_4 = lv_obj_create(ui->screen_9_cont_2);
-    lv_obj_set_pos(ui->screen_9_cont_4, 412, 115);
-    lv_obj_set_size(ui->screen_9_cont_4, 866, 672);
+    lv_obj_set_pos(ui->screen_9_cont_4, 347, 223);
+    lv_obj_set_size(ui->screen_9_cont_4, 866, 504);
     lv_obj_set_scrollbar_mode(ui->screen_9_cont_4, LV_SCROLLBAR_MODE_OFF);
 
     //Write style for screen_9_cont_4, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
@@ -137,10 +137,7 @@ void setup_scr_screen_9(lv_ui *ui)
     lv_obj_set_style_clip_corner(ui->screen_9_img_14, true, LV_PART_MAIN|LV_STATE_DEFAULT);
 
     //The custom code of screen_9.
-    page_manager_init();
-subpage_set(1);
 
-    lv_obj_add_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);//键盘
 
 
 

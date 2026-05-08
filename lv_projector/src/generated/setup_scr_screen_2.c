@@ -350,9 +350,7 @@ void setup_scr_screen_2(lv_ui *ui)
     lv_obj_set_style_text_align(ui->screen_2_btn_16, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
 
     //The custom code of screen_2.
-    // lv_obj_add_flag(guider_ui.screen_2_cont_1, LV_OBJ_FLAG_HIDDEN);
 
-    lv_obj_add_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);//键盘
 
     //Update current screen layout.
     lv_obj_update_layout(ui->screen_2);

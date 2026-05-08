@@ -776,9 +776,7 @@ void setup_scr_screen_8(lv_ui *ui)
     lv_obj_set_style_text_align(ui->screen_8_btn_31, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
 
     //The custom code of screen_8.
-    lv_obj_clear_flag(guider_ui.screen_8, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);//键盘
-page_set(8);
+
 
 
 

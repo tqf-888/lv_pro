@@ -335,10 +335,6 @@ typedef struct
 	lv_obj_t *screen_11_line_1;
 	lv_obj_t *screen_11_cont_4;
 	lv_obj_t *screen_11_img_15;
-	lv_obj_t *screen_11_btn_7;
-	lv_obj_t *screen_11_btn_7_label;
-	lv_obj_t *screen_11_btn_6;
-	lv_obj_t *screen_11_btn_6_label;
 	lv_obj_t *screen_11_img_2;
 	lv_obj_t *screen_9;
 	bool screen_9_del;

@@ -29,7 +29,7 @@
 #define WIFI_LIST_PAD       10
 #define WIFI_ROW_H          56
 #define WIFI_ROW_GAP        8
-#define WIFI_PAGE_SIZE      6
+#define WIFI_PAGE_SIZE      7
 
 /* WiFi item content position.
  * 图标和文字位置以后只改这里。
@@ -59,9 +59,7 @@
 
 #define WIFI_CONNECT_CHECK_INTERVAL_MS  1000
 #define WIFI_CONNECT_CHECK_MAX_COUNT    20
-/* 板端 wifi -s/-g 的状态输出有时不能被 popen 捕获。
- * 连接命令返回 ok 后，如果连续若干秒仍读不到 SSID，则使用本次点击的目标 SSID 作为已连接名，避免 UI 永远误判失败。
- */
+/* 连接命令返回 ok 后，使用本次点击的目标 SSID 作为已连接名，避免 UI 永远误判失败。 */
 #define WIFI_CONNECT_ASSUME_SUCCESS_AFTER_COUNT  8
 #define WIFI_SCAN_FAIL_BACKOFF_SEC 3
 
@@ -159,6 +157,17 @@ static bool ssid_is_same(const char *a, const char *b)
     if (!a || !b) return false;
     if (a[0] == '\0' || b[0] == '\0') return false;
     return strcmp(a, b) == 0;
+}
+
+static bool ssid_is_valid_visible(const char *ssid)
+{
+    if (!ssid) return false;
+
+    while (*ssid == ' ' || *ssid == '\t' || *ssid == '\r' || *ssid == '\n') {
+        ssid++;
+    }
+
+    return *ssid != '\0';
 }
 
 static const void *wifi_signal_img_src(int rssi)
@@ -669,6 +678,19 @@ static void wifi_password_popup_open(lv_wifi_list_component_t *comp, const char 
     WIFI_LIST_LOG("open password popup ssid=%s", comp->selected_ssid);
 }
 
+static void add_empty_wifi_row(lv_wifi_list_component_t *comp)
+{
+    if (!comp || !comp->list) return;
+
+    lv_obj_t *row = lv_obj_create(comp->list);
+    lv_obj_set_width(row, LV_PCT(100));
+    lv_obj_set_height(row, WIFI_ROW_H);
+    lv_obj_add_style(row, &comp->style_item, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(row, LV_OPA_TRANSP, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_opa(row, LV_OPA_TRANSP, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+}
+
 static void add_wifi_item(lv_wifi_list_component_t *comp, const lv_wifi_list_ap_t *ap)
 {
     if (!comp || !ap || ap->ssid[0] == '\0') return;
@@ -741,11 +763,15 @@ static void wifi_list_render(lv_wifi_list_component_t *comp)
         lv_obj_center(label);
     } else {
         int start = comp->page_index * comp->page_size;
-        int end = start + comp->page_size;
-        if (end > comp->item_count) end = comp->item_count;
 
-        for (int i = start; i < end; i++) {
-            add_wifi_item(comp, &comp->items[i]);
+        /* 固定每页 7 行。最后一页真实 WiFi 不够时补空行，避免页面高度一会 7 行一会 5 行。 */
+        for (int slot = 0; slot < comp->page_size; slot++) {
+            int i = start + slot;
+            if (i < comp->item_count && ssid_is_valid_visible(comp->items[i].ssid)) {
+                add_wifi_item(comp, &comp->items[i]);
+            } else {
+                add_empty_wifi_row(comp);
+            }
         }
     }
 
@@ -778,43 +804,72 @@ static int wifi_list_refresh_impl(lv_wifi_list_component_t *comp)
     }
 
     wifi_scan_ui_set_busy(comp, true);
-    wifi_list_update_connected_ssid(comp);
+    /*
+     * 扫描前不要主动查询当前SSID。
+     * 某些板端查询SSID会间接触发 scan，导致打开一次页面出现多次扫描。
+     * 这里直接进入真正的 scan_cb，保证一次刷新只调用一次扫描。
+     */
     if (comp->status) {
         if (comp->connected_ssid[0] != '\0') {
             lv_label_set_text_fmt(comp->status, "已连接%s，正在扫描 WiFi...", comp->connected_ssid);
         } else {
-            lv_label_set_text(comp->status, "未连接 WiFi，正在扫描 WiFi...");
+            lv_label_set_text(comp->status, "正在扫描 WiFi...");
         }
     }
 
-    memset(comp->items, 0, sizeof(lv_wifi_list_ap_t) * comp->max_items);
+    lv_wifi_list_ap_t *scan_items = (lv_wifi_list_ap_t *)calloc(comp->max_items, sizeof(lv_wifi_list_ap_t));
+    if (!scan_items) {
+        WIFI_LIST_LOG("scan calloc failed");
+        if (comp->status) lv_label_set_text(comp->status, "WiFi 扫描失败：内存不足");
+        wifi_scan_ui_set_busy(comp, false);
+        return -1;
+    }
 
-    int count = comp->scan_cb(comp->items, comp->max_items, comp->user_data);
+    int count = comp->scan_cb(scan_items, comp->max_items, comp->user_data);
+    if (count == LV_WIFI_LIST_SCAN_PENDING) {
+        free(scan_items);
+        WIFI_LIST_LOG("scan pending in background");
+        if (comp->status) {
+            if (comp->connected_ssid[0] != '\0') {
+                lv_label_set_text_fmt(comp->status, "已连接%s，正在后台扫描 WiFi...", comp->connected_ssid);
+            } else {
+                lv_label_set_text(comp->status, "正在后台扫描 WiFi...");
+            }
+        }
+        /* 后台线程完成后会再次调用 lv_wifi_list_refresh() 取结果。这里不能阻塞 UI。 */
+        wifi_scan_ui_set_busy(comp, false);
+        return LV_WIFI_LIST_SCAN_PENDING;
+    }
+
     if (count < 0) {
+        free(scan_items);
         comp->item_count = 0;
         comp->page_index = 0;
         WIFI_LIST_LOG("scan failed");
         if (comp->status) {
-            lv_label_set_text_fmt(comp->status,
-                                  "WiFi 扫描失败，%d 秒后自动重试...",
-                                  WIFI_SCAN_FAIL_BACKOFF_SEC);
+            lv_label_set_text(comp->status, "WiFi 扫描失败，请点刷新重试");
         }
         wifi_list_render(comp);
         wifi_scan_ui_set_busy(comp, false);
-        comp->scan_retry_timer = lv_timer_create(wifi_scan_retry_timer_cb,
-                                                 WIFI_SCAN_FAIL_BACKOFF_SEC * 1000,
-                                                 comp);
-        if (comp->scan_retry_timer) {
-            lv_timer_set_repeat_count(comp->scan_retry_timer, 1);
-        }
         return -1;
     }
 
     if (count > comp->max_items) count = comp->max_items;
-    comp->item_count = count;
+    memset(comp->items, 0, sizeof(lv_wifi_list_ap_t) * comp->max_items);
+
+    int visible_count = 0;
+    for (int i = 0; i < count && visible_count < comp->max_items; i++) {
+        if (!ssid_is_valid_visible(scan_items[i].ssid)) {
+            continue;
+        }
+        comp->items[visible_count++] = scan_items[i];
+    }
+    free(scan_items);
+
+    comp->item_count = visible_count;
     comp->page_index = 0;
 
-    WIFI_LIST_LOG("scan ok count=%d", comp->item_count);
+    WIFI_LIST_LOG("scan ok count=%d page_size=%d", comp->item_count, comp->page_size);
 
     wifi_list_update_connected_ssid(comp);
 
@@ -949,11 +1004,14 @@ lv_wifi_list_component_t *lv_wifi_list_create(lv_obj_t *screen,
 
     WIFI_LIST_LOG("create ok max_items=%d page_size=%d", comp->max_items, comp->page_size);
 
-    wifi_list_update_connected_ssid(comp);
-
     if (cfg->auto_scan_on_create) {
+        /*
+         * 创建后自动扫描时，不先查SSID。
+         * 避免 app_wifi_list_open() 触发：查SSID一次 + 扫描一次 + 查SSID一次。
+         */
         wifi_list_refresh_impl(comp);
     } else {
+        wifi_list_update_connected_ssid(comp);
         wifi_list_set_status_idle(comp, "未连接 WiFi，等待扫描");
         wifi_list_render(comp);
     }

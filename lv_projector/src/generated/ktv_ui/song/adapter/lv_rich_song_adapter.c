@@ -499,7 +499,7 @@ static void rs_on_item_click(void *user_ctx,
         set_order_num(6);
         char str1[100];
         snprintf(str1, sizeof(str1), "%d", get_order_num());
-        lv_label_set_text(lv_obj_get_child(lv_obj_get_child(lv_scr_act(), 0), -1), str1);
+        lv_label_set_text(lv_obj_get_child(lv_obj_get_child(lv_scr_act(), 1), -1), str1);
     }
     if (rel_x >= s->f_x      && rel_x < (s->f_x + s->f_w))
     {

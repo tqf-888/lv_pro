@@ -32,12 +32,12 @@ bool NetWork_WIFI_Disconnect(void);
 bool NetWork_WIFI_IsConnected(void);
 
 // =============================================================================
-// 功能：获取当前已连接 WiFi 的 SSID
-// 参数：ssid_buf：输出缓冲区；ssid_buf_size：缓冲区大小
-// 返回：true：获取成功；false：当前未连接或无法读取 SSID
-// 说明：优先使用 iwgetid/wpa_cli，失败后解析 wifi -s / wifi -g / wifi -S 输出。
+// 功能：保存/读取最近一次连接成功的 WiFi SSID
+// 说明：只读写 /usr/share/lv_projector 持久文件，不执行系统查询命令。
 // =============================================================================
+bool NetWork_WIFI_SaveConnectedSSID(const char *ssid);
 bool NetWork_WIFI_GetConnectedSSID(char *ssid_buf, size_t ssid_buf_size);
+bool NetWork_WIFI_ClearConnectedSSID(void);
 
 #ifdef __cplusplus
 }

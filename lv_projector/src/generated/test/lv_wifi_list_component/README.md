@@ -1,26 +1,22 @@
-# lv_wifi_list_component_v14
+# lv_wifi_list_component_fixed
 
-修复点：
+本版修复：打开页面没有扫描动作的问题。
 
-1. 不再只依赖 `iwgetid -r` / `wpa_cli status`。
-2. 新增 `NetWork_WIFI_GetConnectedSSID()`。
-3. 当前连接 SSID 查询顺序：
+规则：
+
+1. `app_wifi_list_open()` 每次调用都会触发一次后台扫描。
+2. 如果 WiFi 页面已经创建过，再次打开也会重新扫一次，不再只是显示旧页面。
+3. 不使用这些命令查询当前连接 WiFi，避免卡 UI：
    - `iwgetid -r`
+   - `iw dev wlan0 link`
+   - `iwconfig wlan0`
    - `wpa_cli -i wlan0 status`
-   - `wifi -s` 输出解析
-   - `wifi -g` 输出解析
-   - `wifi -S` 输出解析
-4. 适配你板子的日志形式：
-   - `wpa state is completed`
-   - BSSID
-   - freq
-   - SSID
-   - network id
-   - CCMP/WPA2/IP/RSSI
-5. 连接成功显示：`连接成功xxx`
-6. 开机自动连接后，打开界面会显示：`已连接xxx`
+   - `wifi -s / wifi -g / wifi -S`
+4. 当前连接 SSID 只读取：
+   - `/usr/share/lv_projector/app_wifi_last_connected_ssid.txt`
+5. 每页固定 7 个可见 WiFi，空 SSID 不进入分页。
 
-直接替换这些文件：
+替换这些文件：
 
 ```text
 lv_wifi_list_component.c
@@ -30,5 +26,3 @@ lv_wifi_list_demo.h
 NetWork_WIFI_Function.c
 NetWork_WIFI_Function.h
 ```
-
-如果你的工程里 `NetWork_WIFI_Function.c/.h` 已经在别处维护，就只合并新增的 `NetWork_WIFI_GetConnectedSSID()` 声明和实现。

@@ -207,7 +207,7 @@ int ktv_time_service_sync_now(void)
         g_time_net.offline = 1;
         if (now_ms == 0ULL || (now_ms - g_time_net.last_sync_log_ms) >= 30000ULL) {
             g_time_net.last_sync_log_ms = (now_ms != 0ULL) ? now_ms : ktv_time_wall_now_ms();
-            printf("[KTV_TIME] sync failed: http (offline/backoff)\n");
+            //printf("[KTV_TIME] sync failed: http (offline/backoff)\n");
         }
         return -1;
     }
@@ -218,7 +218,7 @@ int ktv_time_service_sync_now(void)
         g_time_net.offline = 1;
         if (now_ms == 0ULL || (now_ms - g_time_net.last_sync_log_ms) >= 30000ULL) {
             g_time_net.last_sync_log_ms = (now_ms != 0ULL) ? now_ms : ktv_time_wall_now_ms();
-            printf("[KTV_TIME] sync failed: json parse (offline/backoff)\n");
+            //printf("[KTV_TIME] sync failed: json parse (offline/backoff)\n");
         }
         return -1;
     }
@@ -232,7 +232,7 @@ int ktv_time_service_sync_now(void)
         g_time_net.offline = 1;
         if (now_ms == 0ULL || (now_ms - g_time_net.last_sync_log_ms) >= 30000ULL) {
             g_time_net.last_sync_log_ms = (now_ms != 0ULL) ? now_ms : ktv_time_wall_now_ms();
-            printf("[KTV_TIME] sync failed: invalid currentTime (offline/backoff)\n");
+            //printf("[KTV_TIME] sync failed: invalid currentTime (offline/backoff)\n");
         }
         return -1;
     }
@@ -244,7 +244,7 @@ int ktv_time_service_sync_now(void)
         g_time_net.offline = 1;
         if (now_ms == 0ULL || (now_ms - g_time_net.last_sync_log_ms) >= 30000ULL) {
             g_time_net.last_sync_log_ms = (now_ms != 0ULL) ? now_ms : ktv_time_wall_now_ms();
-            printf("[KTV_TIME] sync failed: monotonic clock (offline/backoff)\n");
+            //printf("[KTV_TIME] sync failed: monotonic clock (offline/backoff)\n");
         }
         return -1;
     }
@@ -253,15 +253,15 @@ int ktv_time_service_sync_now(void)
     ktv_time_persist_snapshot(server_sec);
 
     if (g_time_net.offline) {
-        printf("[KTV_TIME] sync recovered\n");
+        //printf("[KTV_TIME] sync recovered\n");
     }
     g_time_net.offline = 0;
     g_time_net.last_sync_fail_ms = 0ULL;
 
-    printf("[KTV_TIME] sync ok: server_ms=%llu server_sec=%llu mono_ms=%llu\n",
-           (unsigned long long)server_ms,
-           (unsigned long long)server_sec,
-           (unsigned long long)mono_ms);
+    //printf("[KTV_TIME] sync ok: server_ms=%llu server_sec=%llu mono_ms=%llu\n",
+        //    (unsigned long long)server_ms,
+        //    (unsigned long long)server_sec,
+        //    (unsigned long long)mono_ms);
 
     return 0;
 }
@@ -322,7 +322,7 @@ static void ktv_time_log_minute(const char *tag)
         g_time_net.last_minute_log_ms = now_ms;
     }
 
-    printf("[KTV_TIME] %s utc=%u\n", (tag != NULL) ? tag : "log", now_sec);
+    //printf("[KTV_TIME] %s utc=%u\n", (tag != NULL) ? tag : "log", now_sec);
 
     if (g_tick_cb != NULL) {
         g_tick_cb(now_sec, tag, g_tick_user);
@@ -336,7 +336,7 @@ static void *ktv_time_thread_main(void *arg)
 
     (void)arg;
 
-    printf("[KTV_TIME] thread start\n");
+    //printf("[KTV_TIME] thread start\n");
 
     /* 启动后立即校准一次 */
     if (ktv_time_service_sync_now() == 0) {
@@ -370,7 +370,7 @@ static void *ktv_time_thread_main(void *arg)
         }
     }
 
-    printf("[KTV_TIME] thread exit\n");
+    //printf("[KTV_TIME] thread exit\n");
     return NULL;
 }
 
