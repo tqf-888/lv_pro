@@ -32,12 +32,16 @@ bool NetWork_WIFI_Disconnect(void);
 bool NetWork_WIFI_IsConnected(void);
 
 // =============================================================================
-// 功能：保存/读取最近一次连接成功的 WiFi SSID
-// 说明：只读写 /usr/share/lv_projector 持久文件，不执行系统查询命令。
+// 功能：保存当前连接 WiFi 的 SSID 到持久文件
+// 说明：写入 /usr/share/lv_projector/app_wifi_last_connected_ssid.txt
 // =============================================================================
 bool NetWork_WIFI_SaveConnectedSSID(const char *ssid);
+
+// =============================================================================
+// 功能：读取缓存的当前 WiFi SSID
+// 说明：只读持久文件，不执行系统命令查询当前 WiFi。
+// =============================================================================
 bool NetWork_WIFI_GetConnectedSSID(char *ssid_buf, size_t ssid_buf_size);
-bool NetWork_WIFI_ClearConnectedSSID(void);
 
 #ifdef __cplusplus
 }

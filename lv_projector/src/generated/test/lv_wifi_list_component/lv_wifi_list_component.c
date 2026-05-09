@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 #define WIFI_LIST_LOG(fmt, ...) \
     printf("[wifi_list] " fmt "\n", ##__VA_ARGS__)
@@ -57,12 +58,6 @@
 #define WIFI_POPUP_BTN_W    140
 #define WIFI_POPUP_BTN_H    54
 
-#define WIFI_CONNECT_CHECK_INTERVAL_MS  1000
-#define WIFI_CONNECT_CHECK_MAX_COUNT    20
-/* 连接命令返回 ok 后，使用本次点击的目标 SSID 作为已连接名，避免 UI 永远误判失败。 */
-#define WIFI_CONNECT_ASSUME_SUCCESS_AFTER_COUNT  8
-#define WIFI_SCAN_FAIL_BACKOFF_SEC 3
-
 LV_FONT_DECLARE(lv_font_Regular_20);
 
 LV_IMG_DECLARE(_ererhgredh1_alpha_44x35); /* 非常好 */
@@ -93,11 +88,18 @@ struct lv_wifi_list_component {
 #endif
     char selected_ssid[LV_WIFI_SSID_MAX_LEN];
     char connected_ssid[LV_WIFI_SSID_MAX_LEN];
-    char pending_connect_ssid[LV_WIFI_SSID_MAX_LEN];
-    lv_timer_t *connect_check_timer;
-    int connect_check_left;
-    lv_timer_t *scan_retry_timer;
     lv_obj_t *scan_spinner;
+
+    lv_timer_t *scan_poll_timer;
+    pthread_t scan_thread;
+    int scan_thread_valid;
+    pthread_mutex_t scan_lock;
+    int scan_running;
+    int scan_done;
+    int scan_ret;
+    lv_wifi_list_ap_t *scan_items;
+    int scan_count;
+
     int scan_in_progress;
 
     lv_style_t style_root;
@@ -137,9 +139,10 @@ static void wifi_list_render(lv_wifi_list_component_t *comp);
 static int wifi_list_refresh_impl(lv_wifi_list_component_t *comp);
 static void wifi_password_popup_close(lv_wifi_list_component_t *comp);
 static void wifi_password_popup_open(lv_wifi_list_component_t *comp, const char *ssid);
-static void wifi_connect_check_start(lv_wifi_list_component_t *comp, const char *ssid);
-static void wifi_connect_check_stop(lv_wifi_list_component_t *comp);
-static void wifi_scan_retry_timer_cb(lv_timer_t *timer);
+static void wifi_scan_poll_timer_cb(lv_timer_t *timer);
+static void *wifi_scan_thread_entry(void *arg);
+static void wifi_scan_join_if_needed(lv_wifi_list_component_t *comp);
+static void add_wifi_empty_item(lv_wifi_list_component_t *comp);
 static void set_btn_disabled(lv_obj_t *btn, bool disabled);
 
 static void safe_copy(char *dst, size_t dst_size, const char *src)
@@ -157,17 +160,6 @@ static bool ssid_is_same(const char *a, const char *b)
     if (!a || !b) return false;
     if (a[0] == '\0' || b[0] == '\0') return false;
     return strcmp(a, b) == 0;
-}
-
-static bool ssid_is_valid_visible(const char *ssid)
-{
-    if (!ssid) return false;
-
-    while (*ssid == ' ' || *ssid == '\t' || *ssid == '\r' || *ssid == '\n') {
-        ssid++;
-    }
-
-    return *ssid != '\0';
 }
 
 static const void *wifi_signal_img_src(int rssi)
@@ -354,110 +346,6 @@ static void item_ctx_delete_cb(lv_event_t *e)
     if (ctx) free(ctx);
 }
 
-static void wifi_connect_check_timer_cb(lv_timer_t *timer)
-{
-    lv_wifi_list_component_t *comp = (lv_wifi_list_component_t *)timer->user_data;
-    if (!comp) return;
-
-    wifi_list_update_connected_ssid(comp);
-
-    if (ssid_is_same(comp->connected_ssid, comp->pending_connect_ssid)) {
-        WIFI_LIST_LOG("connect success ssid=%s", comp->connected_ssid);
-        if (comp->status) {
-            lv_label_set_text_fmt(comp->status, "连接成功%s", comp->connected_ssid);
-        }
-        wifi_list_render(comp);
-        wifi_connect_check_stop(comp);
-        return;
-    }
-
-    comp->connect_check_left--;
-
-    if (comp->connected_ssid[0] == '\0' &&
-        comp->pending_connect_ssid[0] != '\0' &&
-        comp->connect_check_left <= WIFI_CONNECT_CHECK_MAX_COUNT - WIFI_CONNECT_ASSUME_SUCCESS_AFTER_COUNT) {
-        safe_copy(comp->connected_ssid, sizeof(comp->connected_ssid), comp->pending_connect_ssid);
-        WIFI_LIST_LOG("connect success by target cache ssid=%s", comp->connected_ssid);
-        if (comp->status) {
-            lv_label_set_text_fmt(comp->status, "连接成功%s", comp->connected_ssid);
-        }
-        wifi_list_render(comp);
-        wifi_connect_check_stop(comp);
-        return;
-    }
-
-    if (comp->connect_check_left <= 0) {
-        WIFI_LIST_LOG("connect timeout target=%s current=%s",
-                      comp->pending_connect_ssid,
-                      comp->connected_ssid[0] ? comp->connected_ssid : "<none>");
-
-        if (comp->status) {
-            if (comp->connected_ssid[0] != '\0') {
-                lv_label_set_text_fmt(comp->status,
-                                      "连接失败%s，当前已连接%s",
-                                      comp->pending_connect_ssid,
-                                      comp->connected_ssid);
-            } else {
-                lv_label_set_text_fmt(comp->status,
-                                      "连接失败%s",
-                                      comp->pending_connect_ssid);
-            }
-        }
-        wifi_list_render(comp);
-        wifi_connect_check_stop(comp);
-        return;
-    }
-
-    if (comp->status) {
-        lv_label_set_text_fmt(comp->status,
-                              "正在连接%s...",
-                              comp->pending_connect_ssid);
-    }
-}
-
-static void wifi_connect_check_stop(lv_wifi_list_component_t *comp)
-{
-    if (!comp) return;
-
-    if (comp->connect_check_timer) {
-        lv_timer_del(comp->connect_check_timer);
-        comp->connect_check_timer = NULL;
-    }
-
-    comp->connect_check_left = 0;
-    comp->pending_connect_ssid[0] = '\0';
-}
-
-static void wifi_connect_check_start(lv_wifi_list_component_t *comp, const char *ssid)
-{
-    if (!comp || !ssid || ssid[0] == '\0') return;
-
-    wifi_connect_check_stop(comp);
-
-    safe_copy(comp->pending_connect_ssid, sizeof(comp->pending_connect_ssid), ssid);
-    comp->connect_check_left = WIFI_CONNECT_CHECK_MAX_COUNT;
-
-    wifi_list_update_connected_ssid(comp);
-    if (ssid_is_same(comp->connected_ssid, comp->pending_connect_ssid)) {
-        WIFI_LIST_LOG("connect success immediately ssid=%s", comp->connected_ssid);
-        if (comp->status) {
-            lv_label_set_text_fmt(comp->status, "连接成功%s", comp->connected_ssid);
-        }
-        wifi_list_render(comp);
-        comp->pending_connect_ssid[0] = '\0';
-        comp->connect_check_left = 0;
-        return;
-    }
-
-    if (comp->status) {
-        lv_label_set_text_fmt(comp->status, "正在连接%s...", comp->pending_connect_ssid);
-    }
-
-    comp->connect_check_timer = lv_timer_create(wifi_connect_check_timer_cb,
-                                                WIFI_CONNECT_CHECK_INTERVAL_MS,
-                                                comp);
-}
-
 static void connect_ok_cb(lv_event_t *e)
 {
     lv_wifi_list_component_t *comp = (lv_wifi_list_component_t *)lv_event_get_user_data(e);
@@ -488,9 +376,12 @@ static void connect_ok_cb(lv_event_t *e)
 
     if (ok) {
         wifi_password_popup_close(comp);
-        wifi_connect_check_start(comp, comp->selected_ssid);
+        safe_copy(comp->connected_ssid, sizeof(comp->connected_ssid), comp->selected_ssid);
+        if (comp->status) {
+            lv_label_set_text_fmt(comp->status, "连接成功%s", comp->connected_ssid);
+        }
+        wifi_list_render(comp);
     } else {
-        wifi_connect_check_stop(comp);
         if (comp->status) {
             lv_label_set_text_fmt(comp->status, "连接失败%s", comp->selected_ssid);
         }
@@ -678,19 +569,6 @@ static void wifi_password_popup_open(lv_wifi_list_component_t *comp, const char 
     WIFI_LIST_LOG("open password popup ssid=%s", comp->selected_ssid);
 }
 
-static void add_empty_wifi_row(lv_wifi_list_component_t *comp)
-{
-    if (!comp || !comp->list) return;
-
-    lv_obj_t *row = lv_obj_create(comp->list);
-    lv_obj_set_width(row, LV_PCT(100));
-    lv_obj_set_height(row, WIFI_ROW_H);
-    lv_obj_add_style(row, &comp->style_item, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(row, LV_OPA_TRANSP, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_opa(row, LV_OPA_TRANSP, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
-}
-
 static void add_wifi_item(lv_wifi_list_component_t *comp, const lv_wifi_list_ap_t *ap)
 {
     if (!comp || !ap || ap->ssid[0] == '\0') return;
@@ -746,6 +624,19 @@ static void add_wifi_item(lv_wifi_list_component_t *comp, const lv_wifi_list_ap_
     lv_obj_add_event_cb(btn, item_ctx_delete_cb, LV_EVENT_DELETE, ctx);
 }
 
+static void add_wifi_empty_item(lv_wifi_list_component_t *comp)
+{
+    if (!comp || !comp->list) return;
+
+    lv_obj_t *btn = lv_obj_create(comp->list);
+    lv_obj_set_width(btn, LV_PCT(100));
+    lv_obj_set_height(btn, WIFI_ROW_H);
+    lv_obj_add_style(btn, &comp->style_item, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(btn, LV_OPA_30, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_state(btn, LV_STATE_DISABLED);
+}
+
 static void wifi_list_render(lv_wifi_list_component_t *comp)
 {
     if (!comp || !comp->list) return;
@@ -756,23 +647,28 @@ static void wifi_list_render(lv_wifi_list_component_t *comp)
     if (comp->page_index < 0) comp->page_index = 0;
     if (comp->page_index > pages - 1) comp->page_index = pages - 1;
 
+    int rows = 0;
+
     if (comp->item_count <= 0) {
         lv_obj_t *label = lv_label_create(comp->list);
         lv_obj_add_style(label, &comp->style_status, LV_PART_MAIN | LV_STATE_DEFAULT);
         lv_label_set_text(label, "未扫描到 WiFi");
         lv_obj_center(label);
+        rows = 1;
     } else {
         int start = comp->page_index * comp->page_size;
+        int end = start + comp->page_size;
+        if (end > comp->item_count) end = comp->item_count;
 
-        /* 固定每页 7 行。最后一页真实 WiFi 不够时补空行，避免页面高度一会 7 行一会 5 行。 */
-        for (int slot = 0; slot < comp->page_size; slot++) {
-            int i = start + slot;
-            if (i < comp->item_count && ssid_is_valid_visible(comp->items[i].ssid)) {
-                add_wifi_item(comp, &comp->items[i]);
-            } else {
-                add_empty_wifi_row(comp);
-            }
+        for (int i = start; i < end; i++) {
+            add_wifi_item(comp, &comp->items[i]);
+            rows++;
         }
+    }
+
+    while (rows < comp->page_size) {
+        add_wifi_empty_item(comp);
+        rows++;
     }
 
     if (comp->page_label) {
@@ -783,13 +679,46 @@ static void wifi_list_render(lv_wifi_list_component_t *comp)
     set_btn_disabled(comp->btn_next, comp->page_index >= pages - 1);
 }
 
+static void *wifi_scan_thread_entry(void *arg)
+{
+    lv_wifi_list_component_t *comp = (lv_wifi_list_component_t *)arg;
+    int count = -1;
+
+    if (!comp) return NULL;
+
+    if (comp->scan_cb && comp->scan_items) {
+        memset(comp->scan_items, 0, sizeof(lv_wifi_list_ap_t) * comp->max_items);
+        count = comp->scan_cb(comp->scan_items, comp->max_items, comp->user_data);
+    }
+
+    pthread_mutex_lock(&comp->scan_lock);
+    comp->scan_ret = count;
+    comp->scan_count = (count > 0) ? count : 0;
+    comp->scan_done = 1;
+    comp->scan_running = 0;
+    pthread_mutex_unlock(&comp->scan_lock);
+
+    return NULL;
+}
+
+static void wifi_scan_join_if_needed(lv_wifi_list_component_t *comp)
+{
+    if (!comp) return;
+
+    if (comp->scan_thread_valid) {
+        pthread_join(comp->scan_thread, NULL);
+        comp->scan_thread_valid = 0;
+    }
+}
+
 static int wifi_list_refresh_impl(lv_wifi_list_component_t *comp)
 {
     if (!comp) return -1;
 
-    if (comp->scan_in_progress) {
-        WIFI_LIST_LOG("scan ignored: already in progress");
-        return -1;
+    if (comp->scan_running || comp->scan_in_progress) {
+        WIFI_LIST_LOG("scan ignored: already running");
+        if (comp->status) lv_label_set_text(comp->status, "正在扫描 WiFi...");
+        return 0;
     }
 
     if (!comp->scan_cb) {
@@ -798,17 +727,9 @@ static int wifi_list_refresh_impl(lv_wifi_list_component_t *comp)
         return -1;
     }
 
-    if (comp->scan_retry_timer) {
-        lv_timer_del(comp->scan_retry_timer);
-        comp->scan_retry_timer = NULL;
-    }
-
+    wifi_list_update_connected_ssid(comp);
     wifi_scan_ui_set_busy(comp, true);
-    /*
-     * 扫描前不要主动查询当前SSID。
-     * 某些板端查询SSID会间接触发 scan，导致打开一次页面出现多次扫描。
-     * 这里直接进入真正的 scan_cb，保证一次刷新只调用一次扫描。
-     */
+
     if (comp->status) {
         if (comp->connected_ssid[0] != '\0') {
             lv_label_set_text_fmt(comp->status, "已连接%s，正在扫描 WiFi...", comp->connected_ssid);
@@ -817,83 +738,88 @@ static int wifi_list_refresh_impl(lv_wifi_list_component_t *comp)
         }
     }
 
-    lv_wifi_list_ap_t *scan_items = (lv_wifi_list_ap_t *)calloc(comp->max_items, sizeof(lv_wifi_list_ap_t));
-    if (!scan_items) {
-        WIFI_LIST_LOG("scan calloc failed");
-        if (comp->status) lv_label_set_text(comp->status, "WiFi 扫描失败：内存不足");
+    pthread_mutex_lock(&comp->scan_lock);
+    comp->scan_running = 1;
+    comp->scan_done = 0;
+    comp->scan_ret = -1;
+    comp->scan_count = 0;
+    pthread_mutex_unlock(&comp->scan_lock);
+
+    if (pthread_create(&comp->scan_thread, NULL, wifi_scan_thread_entry, comp) != 0) {
+        pthread_mutex_lock(&comp->scan_lock);
+        comp->scan_running = 0;
+        comp->scan_done = 1;
+        comp->scan_ret = -1;
+        pthread_mutex_unlock(&comp->scan_lock);
+
         wifi_scan_ui_set_busy(comp, false);
+        if (comp->status) lv_label_set_text(comp->status, "WiFi 扫描线程创建失败");
         return -1;
     }
 
-    int count = comp->scan_cb(scan_items, comp->max_items, comp->user_data);
-    if (count == LV_WIFI_LIST_SCAN_PENDING) {
-        free(scan_items);
-        WIFI_LIST_LOG("scan pending in background");
-        if (comp->status) {
-            if (comp->connected_ssid[0] != '\0') {
-                lv_label_set_text_fmt(comp->status, "已连接%s，正在后台扫描 WiFi...", comp->connected_ssid);
-            } else {
-                lv_label_set_text(comp->status, "正在后台扫描 WiFi...");
-            }
-        }
-        /* 后台线程完成后会再次调用 lv_wifi_list_refresh() 取结果。这里不能阻塞 UI。 */
-        wifi_scan_ui_set_busy(comp, false);
-        return LV_WIFI_LIST_SCAN_PENDING;
+    comp->scan_thread_valid = 1;
+
+    if (!comp->scan_poll_timer) {
+        comp->scan_poll_timer = lv_timer_create(wifi_scan_poll_timer_cb, 100, comp);
     }
 
+    WIFI_LIST_LOG("scan thread started");
+    return 0;
+}
+
+static void wifi_scan_poll_timer_cb(lv_timer_t *timer)
+{
+    lv_wifi_list_component_t *comp = (lv_wifi_list_component_t *)timer->user_data;
+    if (!comp) return;
+
+    pthread_mutex_lock(&comp->scan_lock);
+    int done = comp->scan_done;
+    int count = comp->scan_ret;
+    pthread_mutex_unlock(&comp->scan_lock);
+
+    if (!done) return;
+
+    if (comp->scan_poll_timer) {
+        comp->scan_poll_timer = NULL;
+        lv_timer_del(timer);
+    }
+
+    wifi_scan_join_if_needed(comp);
+
     if (count < 0) {
-        free(scan_items);
         comp->item_count = 0;
         comp->page_index = 0;
         WIFI_LIST_LOG("scan failed");
-        if (comp->status) {
-            lv_label_set_text(comp->status, "WiFi 扫描失败，请点刷新重试");
-        }
+        if (comp->status) lv_label_set_text(comp->status, "WiFi 扫描失败");
         wifi_list_render(comp);
         wifi_scan_ui_set_busy(comp, false);
-        return -1;
+        return;
     }
 
     if (count > comp->max_items) count = comp->max_items;
+
     memset(comp->items, 0, sizeof(lv_wifi_list_ap_t) * comp->max_items);
-
-    int visible_count = 0;
-    for (int i = 0; i < count && visible_count < comp->max_items; i++) {
-        if (!ssid_is_valid_visible(scan_items[i].ssid)) {
-            continue;
-        }
-        comp->items[visible_count++] = scan_items[i];
+    if (count > 0) {
+        memcpy(comp->items, comp->scan_items, sizeof(lv_wifi_list_ap_t) * count);
     }
-    free(scan_items);
 
-    comp->item_count = visible_count;
+    comp->item_count = count;
     comp->page_index = 0;
 
-    WIFI_LIST_LOG("scan ok count=%d page_size=%d", comp->item_count, comp->page_size);
+    WIFI_LIST_LOG("scan ok count=%d", comp->item_count);
 
     wifi_list_update_connected_ssid(comp);
 
     if (comp->status) {
         if (comp->connected_ssid[0] != '\0') {
-            lv_label_set_text_fmt(comp->status, "已连接%s", comp->connected_ssid);
+            lv_label_set_text_fmt(comp->status, "已连接%s，扫描完成，共 %d 个 WiFi", comp->connected_ssid, comp->item_count);
         } else {
-            lv_label_set_text_fmt(comp->status, "未连接 WiFi，扫描完成，共 %d 个 WiFi", comp->item_count);
+            lv_label_set_text_fmt(comp->status, "扫描完成，共 %d 个 WiFi", comp->item_count);
         }
     }
 
     wifi_list_render(comp);
     wifi_scan_ui_set_busy(comp, false);
-    return comp->item_count;
-}
-
-static void wifi_scan_retry_timer_cb(lv_timer_t *timer)
-{
-    lv_wifi_list_component_t *comp = (lv_wifi_list_component_t *)timer->user_data;
-    if (!comp) return;
-
-    comp->scan_retry_timer = NULL;
-    WIFI_LIST_LOG("auto retry scan");
-    (void)wifi_list_refresh_impl(comp);
 }
 
 lv_wifi_list_component_t *lv_wifi_list_create(lv_obj_t *screen,
@@ -926,6 +852,16 @@ lv_wifi_list_component_t *lv_wifi_list_create(lv_obj_t *screen,
         WIFI_LIST_LOG("create failed: calloc items");
         return NULL;
     }
+
+    comp->scan_items = (lv_wifi_list_ap_t *)calloc(comp->max_items, sizeof(lv_wifi_list_ap_t));
+    if (!comp->scan_items) {
+        free(comp->items);
+        free(comp);
+        WIFI_LIST_LOG("create failed: calloc scan_items");
+        return NULL;
+    }
+
+    pthread_mutex_init(&comp->scan_lock, NULL);
 
     wifi_list_style_init(comp);
 
@@ -1004,14 +940,11 @@ lv_wifi_list_component_t *lv_wifi_list_create(lv_obj_t *screen,
 
     WIFI_LIST_LOG("create ok max_items=%d page_size=%d", comp->max_items, comp->page_size);
 
+    wifi_list_update_connected_ssid(comp);
+
     if (cfg->auto_scan_on_create) {
-        /*
-         * 创建后自动扫描时，不先查SSID。
-         * 避免 app_wifi_list_open() 触发：查SSID一次 + 扫描一次 + 查SSID一次。
-         */
         wifi_list_refresh_impl(comp);
     } else {
-        wifi_list_update_connected_ssid(comp);
         wifi_list_set_status_idle(comp, "未连接 WiFi，等待扫描");
         wifi_list_render(comp);
     }
@@ -1026,11 +959,20 @@ void lv_wifi_list_destroy(lv_wifi_list_component_t **pcomp)
     lv_wifi_list_component_t *comp = *pcomp;
     WIFI_LIST_LOG("destroy");
 
-    wifi_connect_check_stop(comp);
-    if (comp->scan_retry_timer) {
-        lv_timer_del(comp->scan_retry_timer);
-        comp->scan_retry_timer = NULL;
+    if (comp->scan_poll_timer) {
+        lv_timer_del(comp->scan_poll_timer);
+        comp->scan_poll_timer = NULL;
     }
+
+    wifi_scan_join_if_needed(comp);
+
+    pthread_mutex_lock(&comp->scan_lock);
+    comp->scan_running = 0;
+    comp->scan_done = 0;
+    comp->scan_ret = -1;
+    comp->scan_count = 0;
+    pthread_mutex_unlock(&comp->scan_lock);
+
     wifi_password_popup_close(comp);
 
     if (comp->root) {
@@ -1040,6 +982,11 @@ void lv_wifi_list_destroy(lv_wifi_list_component_t **pcomp)
 
     free(comp->items);
     comp->items = NULL;
+
+    free(comp->scan_items);
+    comp->scan_items = NULL;
+
+    pthread_mutex_destroy(&comp->scan_lock);
 
     wifi_list_style_reset(comp);
 

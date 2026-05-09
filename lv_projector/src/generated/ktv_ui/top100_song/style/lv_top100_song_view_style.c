@@ -10,7 +10,7 @@ void lv_top100_song_default_style_init(void)
 {
     memset(&g_lv_top100_song_default_style, 0, sizeof(g_lv_top100_song_default_style));
 
-    g_lv_top100_song_default_style.visible_rows = 8;
+    g_lv_top100_song_default_style.visible_rows = 7;
     g_lv_top100_song_default_style.visible_cols = 1;
 
     /*
@@ -20,62 +20,62 @@ void lv_top100_song_default_style_init(void)
      */
     g_lv_top100_song_default_style.overscan_rows_front = 2;
     g_lv_top100_song_default_style.overscan_rows_back = 2;
-    g_lv_top100_song_default_style.preload_before = 8;
-    g_lv_top100_song_default_style.preload_after = 24;
+    g_lv_top100_song_default_style.preload_before = 7;
+    g_lv_top100_song_default_style.preload_after = 21;
 
     /*
-     * 目标尺寸：680 x 631
-     * 8 行铺满高度：
-     * 8 * 78 + 7 * 1 = 631
+     * 目标尺寸：530 x 631
+     * 7 行显示：
+     * 7 * 90 = 630，剩余 1px 给 viewport
      */
-    g_lv_top100_song_default_style.viewport_width = 680;
+    g_lv_top100_song_default_style.viewport_width = 530;
     g_lv_top100_song_default_style.viewport_height = 631;
 
-    g_lv_top100_song_default_style.cell_width = 680;
-    g_lv_top100_song_default_style.cell_height = 78;
+    g_lv_top100_song_default_style.cell_width = 530;
+    g_lv_top100_song_default_style.cell_height = 90;
 
     g_lv_top100_song_default_style.gap_x = 0;
-    g_lv_top100_song_default_style.gap_y = 1;
+    g_lv_top100_song_default_style.gap_y = 0;
 
-    g_lv_top100_song_default_style.row_style.cell_width = 680;
-    g_lv_top100_song_default_style.row_style.cell_height = 78;
+    g_lv_top100_song_default_style.row_style.cell_width = 530;
+    g_lv_top100_song_default_style.row_style.cell_height = 90;
 
     /* 左侧序号 */
-    g_lv_top100_song_default_style.row_style.idx_x = 10;
-    g_lv_top100_song_default_style.row_style.idx_w = 40;
+    g_lv_top100_song_default_style.row_style.idx_x = 8;
+    g_lv_top100_song_default_style.row_style.idx_w = 36;
 
     /* 歌名 */
-    g_lv_top100_song_default_style.row_style.name_x = 58;
-    g_lv_top100_song_default_style.row_style.name_w = 205;
+    g_lv_top100_song_default_style.row_style.name_x = 50;
+    g_lv_top100_song_default_style.row_style.name_w = 165;
 
     /* 歌手名 */
-    g_lv_top100_song_default_style.row_style.artist_x = 270;
-    g_lv_top100_song_default_style.row_style.artist_w = 95;
+    g_lv_top100_song_default_style.row_style.artist_x = 220;
+    g_lv_top100_song_default_style.row_style.artist_w = 80;
 
     /*
-     * 右侧标记区整体左收，确保 680 宽内不裁切。
-     * 最右一列结束位置：635 + 36 = 671
+     * 右侧标记区整体左收，确保 530 宽内不裁切。
+     * 最右一列结束位置：502 + 24 = 526
      */
-    g_lv_top100_song_default_style.row_style.a_x = 370;
-    g_lv_top100_song_default_style.row_style.a_w = 68;
+    g_lv_top100_song_default_style.row_style.a_x = 305;
+    g_lv_top100_song_default_style.row_style.a_w = 48;
 
-    g_lv_top100_song_default_style.row_style.b_x = 440;
-    g_lv_top100_song_default_style.row_style.b_w = 68;
+    g_lv_top100_song_default_style.row_style.b_x = 354;
+    g_lv_top100_song_default_style.row_style.b_w = 48;
 
-    g_lv_top100_song_default_style.row_style.c_x = 515;
-    g_lv_top100_song_default_style.row_style.c_w = 36;
+    g_lv_top100_song_default_style.row_style.c_x = 405;
+    g_lv_top100_song_default_style.row_style.c_w = 24;
 
-    g_lv_top100_song_default_style.row_style.d_x = 555;
-    g_lv_top100_song_default_style.row_style.d_w = 36;
+    g_lv_top100_song_default_style.row_style.d_x = 429;
+    g_lv_top100_song_default_style.row_style.d_w = 24;
 
-    g_lv_top100_song_default_style.row_style.e_x = 595;
-    g_lv_top100_song_default_style.row_style.e_w = 36;
+    g_lv_top100_song_default_style.row_style.e_x = 466;
+    g_lv_top100_song_default_style.row_style.e_w = 24;
 
-    g_lv_top100_song_default_style.row_style.f_x = 635;
-    g_lv_top100_song_default_style.row_style.f_w = 36;
+    g_lv_top100_song_default_style.row_style.f_x = 502;
+    g_lv_top100_song_default_style.row_style.f_w = 24;
 
-    /* 文字整体下移一点，适配 78 高度 */
-    g_lv_top100_song_default_style.row_style.text_y = 22;
+    /* 文字整体下移一点，适配 90 高度 */
+    g_lv_top100_song_default_style.row_style.text_y = 28;
 
     g_lv_top100_song_default_style.row_style.bg_color = lv_color_hex(0x000000);
     g_lv_top100_song_default_style.row_style.bg_opa = LV_OPA_TRANSP;

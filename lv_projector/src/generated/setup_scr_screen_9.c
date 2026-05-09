@@ -13,7 +13,7 @@
 #include "events_init.h"
 #include "widgets_init.h"
 #include "custom.h"
-#include "rich_song_page_demo.h"
+
 
 
 void setup_scr_screen_9(lv_ui *ui)
@@ -65,8 +65,8 @@ void setup_scr_screen_9(lv_ui *ui)
 
     //Write codes screen_9_cont_4
     ui->screen_9_cont_4 = lv_obj_create(ui->screen_9_cont_2);
-    lv_obj_set_pos(ui->screen_9_cont_4, 347, 223);
-    lv_obj_set_size(ui->screen_9_cont_4, 866, 504);
+    lv_obj_set_pos(ui->screen_9_cont_4, 336, 223);
+    lv_obj_set_size(ui->screen_9_cont_4, 866, 530);
     lv_obj_set_scrollbar_mode(ui->screen_9_cont_4, LV_SCROLLBAR_MODE_OFF);
 
     //Write style for screen_9_cont_4, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.

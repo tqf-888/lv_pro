@@ -13,9 +13,6 @@ extern "C" {
 #define LV_WIFI_SSID_MAX_LEN 64
 #endif
 
-/* scan_cb 返回这个值表示：扫描已在后台启动，当前先不更新列表。 */
-#define LV_WIFI_LIST_SCAN_PENDING (-2)
-
 typedef struct lv_wifi_list_component lv_wifi_list_component_t;
 
 typedef struct {
@@ -29,9 +26,7 @@ typedef struct {
  *  - items: 组件提供的临时缓存
  *  - max_items: 最多可写入数量
  *  - user_data: 用户透传数据
- *  - 返回实际写入的 WiFi 数量
- *  - 返回 LV_WIFI_LIST_SCAN_PENDING 表示后台扫描中，UI 不阻塞
- *  - 其它负数表示失败
+ *  - 返回实际写入的 WiFi 数量，失败返回负数
  */
 typedef int (*lv_wifi_list_scan_cb_t)(lv_wifi_list_ap_t *items,
                                       int max_items,
@@ -41,8 +36,8 @@ typedef int (*lv_wifi_list_scan_cb_t)(lv_wifi_list_ap_t *items,
  * 连接回调：
  *  - 用户点击 WiFi 后弹出密码框
  *  - 点击弹窗里的“连接”后才调用这个回调
- *  - 返回 true 只表示连接命令下发成功，不代表已经连上
- *  - 组件会继续轮询当前 SSID，确认后显示“连接成功xxx”
+ *  - 返回 true 表示连接命令下发成功
+ *  - 组件直接显示本次点击的 SSID 为“连接成功xxx”
  */
 typedef bool (*lv_wifi_list_connect_cb_t)(const char *ssid,
                                           const char *password,
@@ -83,11 +78,10 @@ lv_wifi_list_component_t *lv_wifi_list_create(lv_obj_t *screen,
 void lv_wifi_list_destroy(lv_wifi_list_component_t **comp);
 
 /*
- * 触发一次扫描。
+ * 触发一次后台扫描。
  * 返回：
- *   >=0 = 当前扫描到的 WiFi 数量
- *   LV_WIFI_LIST_SCAN_PENDING = 后台扫描中
- *   -1  = 参数/scan_cb 错误或扫描失败
+ *   0  = 已启动，或已有扫描正在运行
+ *  -1  = 参数错误或线程创建失败
  */
 int lv_wifi_list_refresh(lv_wifi_list_component_t *comp);
 

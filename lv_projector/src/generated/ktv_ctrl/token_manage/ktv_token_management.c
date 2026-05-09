@@ -123,13 +123,12 @@ static void *ktv_bootstrap_prefetch_main(void *arg)
     /*
      * Boot-time one-shot actions (best-effort, non-blocking for main thread):
      * - sync time once
-     * - fetch token once
+     * - load token cache only; actual refresh stays lazy in ktv_get_token()
      * - refresh label once
      */
     (void)ktv_time_service_sync_now();
 
     ktv_token_service_init();
-    (void)ktv_token_service_refresh_now();
 
     ktv_time_update_show_and_async_ui(ktv_time_service_now_sec());
     return NULL;

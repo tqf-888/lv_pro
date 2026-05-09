@@ -320,15 +320,8 @@ static int rs_sync_batch_from_json(lv_favorite_song_adapter_t *adapter,
             snprintf(item.text_b, sizeof(item.text_b), "7");
             item.color_b = 0xa600ff;
         }
-
-        if(aiMv->valuestring)
-        {
-            snprintf(item.text_b, sizeof(item.text_b), "7");
-            item.color_b = 0xff6500;
-        }
-
-        if(aiMv->valuestring)
-        {
+        /* aiMv 为 null、缺字段或非 string 时不填 URL；勿对 NULL 节点读 valuestring */
+        if (aiMv != NULL && cJSON_IsString(aiMv) && aiMv->valuestring != NULL) {
             snprintf(item.text_b, sizeof(item.text_b), "7");
             snprintf(item.ai_mv_url, sizeof(item.ai_mv_url), "%s", aiMv->valuestring);
             item.color_b = 0xff6500;
@@ -525,7 +518,7 @@ static void rs_on_item_click(void *user_ctx,
         char songinfo_json[16384];
         char *p = NULL;
         int a = 1;
-        if(strstr(item.text_b, "7"))
+        if(item.color_b == 0xff6500)
         {
             p = item.ai_mv_url;
             a = 0;
