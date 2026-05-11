@@ -254,7 +254,7 @@ void setup_scr_screen_3(lv_ui *ui)
 
 
 
-
+// lv_textarea_set_text(guider_ui.screen_3_ta_1, "");
 
     //Update current screen layout.
     lv_obj_update_layout(ui->screen_3);

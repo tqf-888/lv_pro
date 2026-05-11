@@ -263,10 +263,67 @@ void setup_scr_screen_log_in(lv_ui *ui)
     lv_obj_set_style_text_opa(ui->screen_log_in_btn_5, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_align(ui->screen_log_in_btn_5, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
 
+    //Write codes screen_log_in_btn_6
+    ui->screen_log_in_btn_6 = lv_btn_create(ui->screen_log_in);
+    ui->screen_log_in_btn_6_label = lv_label_create(ui->screen_log_in_btn_6);
+    lv_label_set_text(ui->screen_log_in_btn_6_label, "退出");
+    lv_label_set_long_mode(ui->screen_log_in_btn_6_label, LV_LABEL_LONG_WRAP);
+    lv_obj_align(ui->screen_log_in_btn_6_label, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_pad_all(ui->screen_log_in_btn_6, 0, LV_STATE_DEFAULT);
+    lv_obj_set_width(ui->screen_log_in_btn_6_label, LV_PCT(100));
+    lv_obj_set_pos(ui->screen_log_in_btn_6, 2, 4);
+    lv_obj_set_size(ui->screen_log_in_btn_6, 179, 101);
+
+    //Write style for screen_log_in_btn_6, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
+    lv_obj_set_style_bg_opa(ui->screen_log_in_btn_6, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(ui->screen_log_in_btn_6, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(ui->screen_log_in_btn_6, 5, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_shadow_width(ui->screen_log_in_btn_6, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(ui->screen_log_in_btn_6, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_log_in_btn_6, &lv_font_Regular_20, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_opa(ui->screen_log_in_btn_6, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_align(ui->screen_log_in_btn_6, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
+
+    //Write codes screen_log_in_btn_7
+    ui->screen_log_in_btn_7 = lv_btn_create(ui->screen_log_in);
+    ui->screen_log_in_btn_7_label = lv_label_create(ui->screen_log_in_btn_7);
+    lv_label_set_text(ui->screen_log_in_btn_7_label, "设置");
+    lv_label_set_long_mode(ui->screen_log_in_btn_7_label, LV_LABEL_LONG_WRAP);
+    lv_obj_align(ui->screen_log_in_btn_7_label, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_pad_all(ui->screen_log_in_btn_7, 0, LV_STATE_DEFAULT);
+    lv_obj_set_width(ui->screen_log_in_btn_7_label, LV_PCT(100));
+    lv_obj_set_pos(ui->screen_log_in_btn_7, 1115, 14);
+    lv_obj_set_size(ui->screen_log_in_btn_7, 148, 76);
+
+    //Write style for screen_log_in_btn_7, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
+    lv_obj_set_style_bg_opa(ui->screen_log_in_btn_7, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(ui->screen_log_in_btn_7, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(ui->screen_log_in_btn_7, 5, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_shadow_width(ui->screen_log_in_btn_7, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(ui->screen_log_in_btn_7, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_log_in_btn_7, &lv_font_Regular_20, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_opa(ui->screen_log_in_btn_7, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_align(ui->screen_log_in_btn_7, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
+
     //The custom code of screen_log_in.
 
 
+    lv_obj_set_style_bg_color(guider_ui.g_kb_top_layer, lv_color_hex(0x161619), LV_PART_MAIN);
+    /* 2. 按键背景（正常状态） */
+    lv_obj_set_style_bg_color  (guider_ui.g_kb_top_layer, lv_color_hex(0x202125), LV_PART_ITEMS);
+    lv_obj_set_style_radius    (guider_ui.g_kb_top_layer, 5,                      LV_PART_ITEMS); /* 圆角 */
+    lv_obj_set_style_text_color(guider_ui.g_kb_top_layer, lv_color_hex(0xE4E4E4), LV_PART_ITEMS);
+    lv_obj_set_style_bg_color  (guider_ui.g_kb_top_layer, lv_color_hex(0x202125), LV_PART_ITEMS | LV_STATE_CHECKED);
+    lv_obj_set_style_text_color(guider_ui.g_kb_top_layer, lv_color_hex(0xE4E4E4), LV_PART_ITEMS | LV_STATE_CHECKED);
+    lv_obj_set_style_radius    (guider_ui.g_kb_top_layer, 5,                      LV_PART_ITEMS | LV_STATE_CHECKED); /* 圆角 */
+    /* 4. 按键按下时的背景/文字 */
+    lv_obj_set_style_bg_color(guider_ui.g_kb_top_layer, lv_color_hex(0x1C1D1E), LV_PART_ITEMS | LV_STATE_PRESSED);
+    lv_obj_set_style_text_color(guider_ui.g_kb_top_layer, lv_color_hex(0xffffff), LV_PART_ITEMS | LV_STATE_PRESSED);
 
+
+    lv_obj_set_align(guider_ui.g_kb_top_layer, LV_ALIGN_DEFAULT);
+    lv_obj_set_size(guider_ui.g_kb_top_layer, 380, 380);
+    lv_obj_set_pos(guider_ui.g_kb_top_layer, 45, 350);
 
     //Update current screen layout.
     lv_obj_update_layout(ui->screen_log_in);

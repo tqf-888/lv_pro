@@ -71,11 +71,11 @@ void setup_scr_screen_13(lv_ui *ui)
     //Write codes screen_13_img_2
     ui->screen_13_img_2 = lv_img_create(ui->screen_13);
     lv_obj_add_flag(ui->screen_13_img_2, LV_OBJ_FLAG_CLICKABLE);
-    lv_img_set_src(ui->screen_13_img_2, &_dhbdhnbfd_alpha_409x418);
+    lv_img_set_src(ui->screen_13_img_2, &_dhbdhnbfd_alpha_420x431);
     lv_img_set_pivot(ui->screen_13_img_2, 50,50);
     lv_img_set_angle(ui->screen_13_img_2, 0);
-    lv_obj_set_pos(ui->screen_13_img_2, 751, 203);
-    lv_obj_set_size(ui->screen_13_img_2, 409, 418);
+    lv_obj_set_pos(ui->screen_13_img_2, 745, 158);
+    lv_obj_set_size(ui->screen_13_img_2, 420, 431);
 
     //Write style for screen_13_img_2, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
     lv_obj_set_style_img_recolor_opa(ui->screen_13_img_2, 0, LV_PART_MAIN|LV_STATE_DEFAULT);

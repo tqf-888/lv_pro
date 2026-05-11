@@ -28,6 +28,7 @@ int show_cnt = 0;
 #include "recommend_video_fetch.h"
 #include "lv_linux_folder_demo.h"
 #include "lv_wifi_list_demo.h"
+#include "cover_page_demo.h"
 
 static void screen_100_btn_1_event_handler (lv_event_t *e)
 {
@@ -467,8 +468,7 @@ static void screen_log_in_btn_1_event_handler (lv_event_t *e)
         lv_obj_add_flag(guider_ui.screen_log_in_cont_1, LV_OBJ_FLAG_HIDDEN);
         extern void set_phone_num(const char *phone_num);
         set_phone_num(lv_textarea_get_text(guider_ui.screen_log_in_ta_1));
-        printf("6666");
-        fprintf(stdout, "6666");
+
         break;
     }
     default:
@@ -484,6 +484,7 @@ static void screen_log_in_btn_3_event_handler (lv_event_t *e)
     {
         extern void set_verification_code(const char *code);
         set_verification_code(lv_textarea_get_text(guider_ui.screen_log_in_ta_2));
+        page_nav_back();
         break;
     }
     default:
@@ -520,6 +521,35 @@ static void screen_log_in_btn_5_event_handler (lv_event_t *e)
     }
 }
 
+static void screen_log_in_btn_6_event_handler (lv_event_t *e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    switch (code) {
+    case LV_EVENT_CLICKED:
+    {
+        page_nav_back();
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+static void screen_log_in_btn_7_event_handler (lv_event_t *e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    switch (code) {
+    case LV_EVENT_CLICKED:
+    {
+        page_nav_push("screen_4",&guider_ui.screen_4,&guider_ui.screen_4_del,setup_scr_screen_4);
+        lv_obj_add_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);//键盘
+        break;
+    }
+    default:
+        break;
+    }
+}
+
 void events_init_screen_log_in (lv_ui *ui)
 {
     lv_obj_add_event_cb(ui->screen_log_in, screen_log_in_event_handler, LV_EVENT_ALL, ui);
@@ -527,6 +557,8 @@ void events_init_screen_log_in (lv_ui *ui)
     lv_obj_add_event_cb(ui->screen_log_in_btn_3, screen_log_in_btn_3_event_handler, LV_EVENT_ALL, ui);
     lv_obj_add_event_cb(ui->screen_log_in_btn_4, screen_log_in_btn_4_event_handler, LV_EVENT_ALL, ui);
     lv_obj_add_event_cb(ui->screen_log_in_btn_5, screen_log_in_btn_5_event_handler, LV_EVENT_ALL, ui);
+    lv_obj_add_event_cb(ui->screen_log_in_btn_6, screen_log_in_btn_6_event_handler, LV_EVENT_ALL, ui);
+    lv_obj_add_event_cb(ui->screen_log_in_btn_7, screen_log_in_btn_7_event_handler, LV_EVENT_ALL, ui);
 }
 
 static void screen_2_event_handler (lv_event_t *e)
@@ -539,6 +571,11 @@ static void screen_2_event_handler (lv_event_t *e)
         db_list_pro_thread_send_to_worker(DBP_WORKER_MSG_set_video_pos, 2, 0, NULL, NULL, NULL);
         lv_obj_add_flag(guider_ui.screen_2_cont_1, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);//键盘
+        break;
+    }
+    case LV_EVENT_SCREEN_UNLOADED:
+    {
+        karaoke_demo_set_positions(LV_ALIGN_TOP_LEFT, 4000, 4000,LV_ALIGN_BOTTOM_RIGHT, 4000,4000);
         break;
     }
     default:
@@ -654,20 +691,6 @@ static void screen_2_btn_15_event_handler (lv_event_t *e)
     }
 }
 
-static void screen_2_btn_16_event_handler (lv_event_t *e)
-{
-    lv_event_code_t code = lv_event_get_code(e);
-    switch (code) {
-    case LV_EVENT_CLICKED:
-    {
-        db_list_pro_thread_send_to_worker(DBP_WORKER_MSG_love_song, 0, 0, get_last_artist(), get_last_song_name(), get_last_clicked_url());
-        break;
-    }
-    default:
-        break;
-    }
-}
-
 void events_init_screen_2 (lv_ui *ui)
 {
     lv_obj_add_event_cb(ui->screen_2, screen_2_event_handler, LV_EVENT_ALL, ui);
@@ -678,7 +701,6 @@ void events_init_screen_2 (lv_ui *ui)
     lv_obj_add_event_cb(ui->screen_2_btn_8, screen_2_btn_8_event_handler, LV_EVENT_ALL, ui);
     lv_obj_add_event_cb(ui->screen_2_btn_14, screen_2_btn_14_event_handler, LV_EVENT_ALL, ui);
     lv_obj_add_event_cb(ui->screen_2_btn_15, screen_2_btn_15_event_handler, LV_EVENT_ALL, ui);
-    lv_obj_add_event_cb(ui->screen_2_btn_16, screen_2_btn_16_event_handler, LV_EVENT_ALL, ui);
 }
 
 static void screen_7_event_handler (lv_event_t *e)
@@ -795,6 +817,7 @@ static void screen_8_event_handler (lv_event_t *e)
         db_list_pro_thread_send_to_worker(DBP_WORKER_MSG_set_video_pos, 1, 0, NULL, NULL, NULL);
         extern void ktv_time_refresh_label_async(void);
         ktv_time_refresh_label_async();
+        page_manager_init();
         page_set(8);
         lv_obj_clear_flag(guider_ui.screen_8, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_add_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);//键盘
@@ -1102,6 +1125,8 @@ static void screen_3_event_handler (lv_event_t *e)
     case LV_EVENT_SCREEN_LOADED:
     {
          if(page_get() != 5)  page_manager_init();
+
+
         page_set(3);//不可以删，键盘事件要用
         demo_app_songs_list(guider_ui.screen_3_cont_3);
         karaoke_demo_set_positions(LV_ALIGN_TOP_LEFT, 1800, 1800, LV_ALIGN_BOTTOM_RIGHT, 1800, 1800);
@@ -1231,7 +1256,7 @@ static void screen_5_btn_3_event_handler (lv_event_t *e)
     case LV_EVENT_CLICKED:
     {
         lv_textarea_del_char(guider_ui.screen_5_ta_1);
-        app_reset_artist_page_to_page0(300);
+
         break;
     }
     default:
@@ -1245,7 +1270,9 @@ static void screen_5_btn_4_event_handler (lv_event_t *e)
     switch (code) {
     case LV_EVENT_CLICKED:
     {
-        lv_textarea_set_text(guider_ui.screen_5_ta_1, "");
+        // lv_textarea_set_text(guider_ui.screen_5_ta_1, "");
+
+        name_set(lv_textarea_get_text(guider_ui.screen_5_ta_1));
         app_reset_artist_page_to_page0(300);
         break;
     }
@@ -1265,6 +1292,7 @@ static void screen_5_btn_6_event_handler (lv_event_t *e)
         subpage_set(1);
         app_close_artist_page();
         page_nav_back();
+
         break;
     }
     default:
@@ -1710,9 +1738,10 @@ static void screen_10_event_handler (lv_event_t *e)
     switch (code) {
     case LV_EVENT_SCREEN_LOADED:
     {
+        page_set(10);//不可以删
         lv_obj_add_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);//键盘
         demo_app_order_songs_list(guider_ui.screen_10_cont_1);
-        page_set(10);//不可以删
+
         break;
     }
     default:
@@ -1799,6 +1828,8 @@ static void screen_102_event_handler (lv_event_t *e)
     case LV_EVENT_SCREEN_LOADED:
     {
         lv_obj_add_flag(guider_ui.g_kb_top_layer, LV_OBJ_FLAG_HIDDEN);
+        app_cover_set_category_position(-1);  // 全部
+        app_open_cover_page(guider_ui.screen_102_cont_1);
         break;
     }
     default:
@@ -1826,7 +1857,49 @@ static void screen_102_btn_3_event_handler (lv_event_t *e)
     switch (code) {
     case LV_EVENT_CLICKED:
     {
+        app_close_cover_page();
         page_nav_back();
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+static void screen_102_btn_4_event_handler (lv_event_t *e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    switch (code) {
+    case LV_EVENT_CLICKED:
+    {
+        lv_obj_t *btn = lv_event_get_target(e);
+
+        // ====================== LVGL V8 专用 获取点击坐标 ======================
+        lv_indev_t *indev = lv_indev_get_act();
+        lv_point_t point;
+        lv_indev_get_point(indev, &point);  // V8 这个函数是可以用的
+
+        // ====================== V8 替代函数：获取控件屏幕坐标 ======================
+        // V9: lv_obj_get_screen_y(btn)
+        // V8: lv_obj_get_y相对于父组件 + 父组件逐级坐标 → 官方用 lv_obj_get_coords
+        lv_area_t coords;
+        lv_obj_get_coords(btn, &coords);    // V8 专用：获取按钮在屏幕上的绝对区域
+        lv_coord_t btn_abs_y = coords.y1;   // 按钮顶部绝对Y坐标
+
+        lv_coord_t rel_y = point.y - btn_abs_y;
+        lv_coord_t height = lv_obj_get_height(btn);
+
+        if (height <= 0) return;
+
+        // 分成6份
+        int segment = (rel_y * 6) / height;
+        if (segment < 0) segment = 0;
+        if (segment >= 6) segment = 5;
+
+        int result = segment;
+        printf("点击位置段：%d (偏移=%d, 高度=%d)\n", result, rel_y, height);
+
+        app_cover_set_category_position(result - 1);
         break;
     }
     default:
@@ -1839,6 +1912,7 @@ void events_init_screen_102 (lv_ui *ui)
     lv_obj_add_event_cb(ui->screen_102, screen_102_event_handler, LV_EVENT_ALL, ui);
     lv_obj_add_event_cb(ui->screen_102_btn_1, screen_102_btn_1_event_handler, LV_EVENT_ALL, ui);
     lv_obj_add_event_cb(ui->screen_102_btn_3, screen_102_btn_3_event_handler, LV_EVENT_ALL, ui);
+    lv_obj_add_event_cb(ui->screen_102_btn_4, screen_102_btn_4_event_handler, LV_EVENT_ALL, ui);
 }
 
 

@@ -12,7 +12,62 @@
 #include "lv_artist_style_2x4.h"
 #include "artist_media_loader_demo.h"
 
+#ifndef ARTIST_RESET_DEBOUNCE_MS
+#define ARTIST_RESET_DEBOUNCE_MS 120U
+#endif
+
 static artist_page_demo_t g_artist_page;
+static lv_timer_t *g_artist_reset_timer = NULL;
+static uint8_t g_artist_reset_pending = 0U;
+static uint32_t g_artist_reset_total_count = 0U;
+
+static void artist_page_demo_reset_timer_cb(lv_timer_t *timer)
+{
+    uint32_t total_count;
+
+    LV_UNUSED(timer);
+
+    if (g_artist_reset_timer != NULL) {
+        lv_timer_pause(g_artist_reset_timer);
+    }
+
+    if (g_artist_reset_pending == 0U) {
+        return;
+    }
+
+    total_count = g_artist_reset_total_count;
+    g_artist_reset_pending = 0U;
+    artist_page_demo_reset_to_page0(&g_artist_page, total_count);
+}
+
+static void artist_page_demo_cancel_pending_reset(void)
+{
+    g_artist_reset_pending = 0U;
+    if (g_artist_reset_timer != NULL) {
+        lv_timer_pause(g_artist_reset_timer);
+        lv_timer_reset(g_artist_reset_timer);
+    }
+}
+
+static void artist_page_demo_schedule_reset_to_page0(uint32_t total_count)
+{
+    g_artist_reset_total_count = total_count;
+    g_artist_reset_pending = 1U;
+
+    if (g_artist_reset_timer == NULL) {
+        g_artist_reset_timer = lv_timer_create(artist_page_demo_reset_timer_cb,
+                                               ARTIST_RESET_DEBOUNCE_MS,
+                                               NULL);
+        if (g_artist_reset_timer == NULL) {
+            g_artist_reset_pending = 0U;
+            artist_page_demo_reset_to_page0(&g_artist_page, total_count);
+            return;
+        }
+    }
+
+    lv_timer_reset(g_artist_reset_timer);
+    lv_timer_resume(g_artist_reset_timer);
+}
 
 static void artist_page_demo_delete_root_now(artist_page_demo_t *page)
 {
@@ -125,6 +180,7 @@ void artist_page_demo_close(artist_page_demo_t *page)
         return;
     }
 
+    artist_page_demo_cancel_pending_reset();
     page->closing = 1U;
     artist_page_demo_release_runtime(page);
     artist_page_demo_delete_root_now(page);
@@ -149,6 +205,10 @@ void artist_page_demo_reset_to_page0(artist_page_demo_t *page, uint32_t total_co
         return;
     }
 
+    if (page->root == NULL || page->adapter.started == 0U) {
+        return;
+    }
+
     /*
      * reset_to_page0 不只是 UI 回到顶部。
      *
@@ -169,7 +229,7 @@ void artist_page_demo_reset_to_page0(artist_page_demo_t *page, uint32_t total_co
         lv_vlist_scroll_to(page->vlist, 0U);
     }
     if (page->adapter.started) {
-        lv_artist_adapter_prime_first_screen(&page->adapter);
+        lv_artist_adapter_prime_reset_screen(&page->adapter);
     }
 }
 
@@ -227,5 +287,5 @@ void app_prepare_close_artist_page(void)
 
 void app_reset_artist_page_to_page0(uint32_t total_count)
 {
-    artist_page_demo_reset_to_page0(&g_artist_page, total_count);
+    artist_page_demo_schedule_reset_to_page0(total_count);
 }

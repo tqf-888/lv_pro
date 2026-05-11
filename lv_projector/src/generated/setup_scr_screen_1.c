@@ -162,8 +162,8 @@ void setup_scr_screen_1(lv_ui *ui)
 
     //Write codes screen_1_cont_10
     ui->screen_1_cont_10 = lv_obj_create(ui->screen_1_cont_3);
-    lv_obj_set_pos(ui->screen_1_cont_10, 287, 128);
-    lv_obj_set_size(ui->screen_1_cont_10, 1023, 669);
+    lv_obj_set_pos(ui->screen_1_cont_10, 359, 147);
+    lv_obj_set_size(ui->screen_1_cont_10, 863, 619);
     lv_obj_set_scrollbar_mode(ui->screen_1_cont_10, LV_SCROLLBAR_MODE_OFF);
 
     //Write style for screen_1_cont_10, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
@@ -178,7 +178,7 @@ void setup_scr_screen_1(lv_ui *ui)
 
     //Write codes screen_1_cont_11
     ui->screen_1_cont_11 = lv_obj_create(ui->screen_1_cont_3);
-    lv_obj_set_pos(ui->screen_1_cont_11, 287, 128);
+    lv_obj_set_pos(ui->screen_1_cont_11, 359, 147);
     lv_obj_set_size(ui->screen_1_cont_11, 1016, 674);
     lv_obj_set_scrollbar_mode(ui->screen_1_cont_11, LV_SCROLLBAR_MODE_OFF);
     lv_obj_add_flag(ui->screen_1_cont_11, LV_OBJ_FLAG_HIDDEN);

@@ -313,7 +313,7 @@ void setup_scr_screen_7(lv_ui *ui)
     lv_obj_align(ui->screen_7_btn_11_label, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_style_pad_all(ui->screen_7_btn_11, 0, LV_STATE_DEFAULT);
     lv_obj_set_width(ui->screen_7_btn_11_label, LV_PCT(100));
-    lv_obj_set_pos(ui->screen_7_btn_11, 1130, -9);
+    lv_obj_set_pos(ui->screen_7_btn_11, 1128, -7);
     lv_obj_set_size(ui->screen_7_btn_11, 142, 111);
 
     //Write style for screen_7_btn_11, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.

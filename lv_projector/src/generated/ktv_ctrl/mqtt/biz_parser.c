@@ -53,7 +53,7 @@ void biz_parse(const char* topic, const char* json_str) {
     // 来源 2：设备控制指令
     else if (strcmp(topic, TOPIC_SUB_2) == 0) {
         if (strcmp(cmd->valuestring, "deviceControl") == 0) {
-            if (strcmp(p.action, "play") == 0) {
+            if (strcmp(p.action, "play") == 0 || strcmp(p.action, "continue") == 0) {
                 printf("[业务-控制] 播放 - 歌曲:%s\n", p.song_id);
                 db_list_pro_thread_send_to_worker(DBP_WORKER_MSG_PLAY, 0, 0, NULL, NULL, NULL);
             } else if (strcmp(p.action, "pause") == 0) {

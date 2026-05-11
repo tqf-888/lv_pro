@@ -30,7 +30,10 @@ static int song_build_batch_url(int batch_index, char *buf, size_t size)
     if (buf == NULL || size == 0U || batch_index < 0) {
         return -1;
     }
-    
+    if(page_get() != 3)
+    {
+        name_set(NULL);
+    }
     return ktv_build_base_url(KTV_4_2_SEARCH_SONG, buf, size, "", "", 0, "", subpage_get(), singer_id_get(), 1, 2, name_get(), batch_index, 50);
 }
 

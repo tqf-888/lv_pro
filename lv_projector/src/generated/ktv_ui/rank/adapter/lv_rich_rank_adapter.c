@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-
+#include "ktv_log_in.h"
 #include "db_list_pro_worker.h"
 #include "ktv_player_ui.h"
 #include "ktv_cloud_order_api.h"
@@ -480,7 +480,7 @@ static void rr_on_item_click(void *user_ctx,
         char songinfo_json[16384];
 
         ktv_cloud_order_resolve_first_play_param("16666666666",
-                                                "fbe29d501e94250e3442d14979913481",
+                                                get_usr_token(),
                                                 1,   // 或 1
                                                 item.song_id,
                                                 NULL,

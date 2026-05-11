@@ -2,6 +2,9 @@
 #include "ktv_player_ui.h"
 #include "recommend_video_fetch.h"
 #include <string.h>
+#include "ktv_log_in.h"
+#include "app_popup.h"
+// #include 
 
 extern void fetch_song_batch_1(char *singer_name, char *song_name, char *ai_mv_url);
 extern void v_add_love_song(char *singer_name, char *song_name, char *ai_mv_url);
@@ -46,53 +49,32 @@ void db_list_pro_worker_handle(int i1,
         break;
 
     case DBP_WORKER_MSG_NEXT:
-        if (i2 == 0)
+
+        mqtt_publish_song_finished("1054", "skipped");
+        memset(&resolved, 0, sizeof(resolved));
+        memset(current_json, 0, sizeof(current_json));
+        memset(songinfo_json, 0, sizeof(songinfo_json));
+
+        if (ktv_cloud_order_resolve_first_play_param_auto("16666666666",
+                                get_usr_token(),
+                                0,
+                                NULL,
+                                &resolved,
+                                current_json,
+                                sizeof(current_json),
+                                songinfo_json,
+                                sizeof(songinfo_json)) == 0)
         {
-            memset(&resolved, 0, sizeof(resolved));
-            memset(current_json, 0, sizeof(current_json));
-            memset(songinfo_json, 0, sizeof(songinfo_json));
-
-            if (ktv_cloud_order_resolve_first_play_param_auto("16666666666",
-                                    "fbe29d501e94250e3442d14979913481",
-                                    0,
-                                    NULL,
-                                    &resolved,
-                                    current_json,
-                                    sizeof(current_json),
-                                    songinfo_json,
-                                    sizeof(songinfo_json)) == 0)
-            {
-                DBP_LOGW("worker handle: NEXT resolve failed, i2=%d\n", i2);
-                break;
-            }
-
-            ktv_player_ui_play(&resolved.play_param);
+            DBP_LOGW("worker handle: NEXT resolve failed, i2=%d\n", i2);
+            break;
         }
-        else if (i2 == 1)
-        {
-            memset(&resolved, 0, sizeof(resolved));
-            memset(current_json, 0, sizeof(current_json));
-            memset(songinfo_json, 0, sizeof(songinfo_json));
+        
+        ktv_player_ui_play(&resolved.play_param);
 
-            if (ktv_cloud_order_resolve_first_play_param_auto("16666666666",
-                                    "fbe29d501e94250e3442d14979913481",
-                                    0,
-                                    NULL,
-                                    &resolved,
-                                    current_json,
-                                    sizeof(current_json),
-                                    songinfo_json,
-                                    sizeof(songinfo_json)) == 0)
-            {
-                DBP_LOGW("worker handle: NEXT resolve failed, i2=%d\n", i2);
-                break;
-            }
-
-            ktv_player_ui_play(&resolved.play_param);
-        }
         break;
 
     case DBP_WORKER_MSG_REPLAY:
+
         ktv_player_ui_replay_current();
         break;
 
@@ -105,7 +87,7 @@ void db_list_pro_worker_handle(int i1,
             memset(songinfo_json, 0, sizeof(songinfo_json));
 
             if (ktv_cloud_order_resolve_first_play_param_auto("16666666666",
-                                    "fbe29d501e94250e3442d14979913481",
+                                    get_usr_token(),
                                     0,
                                     NULL,
                                     &resolved,
@@ -119,7 +101,7 @@ void db_list_pro_worker_handle(int i1,
                 memset(songinfo_json, 0, sizeof(songinfo_json));
 
                 if (ktv_cloud_order_resolve_first_play_param("16666666666",
-                                        "fbe29d501e94250e3442d14979913481",
+                                        get_usr_token(),
                                         1,   // 或 1
                                         5897449,
                                         NULL,
@@ -171,6 +153,7 @@ void db_list_pro_worker_handle(int i1,
     break;
 
     case DBP_WORKER_MSG_love_song:
+
     v_add_love_song(p1, p2, p3);
     break;
     default:

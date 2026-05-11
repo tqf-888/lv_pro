@@ -16,6 +16,7 @@
 
 #define KTV_TIME_SYNC_INTERVAL_SEC   (60 * 60)  /* 每小时校准一次 */
 #define KTV_TIME_LOG_INTERVAL_SEC    (60)       /* 每分钟打印一次 */
+#define KTV_TIME_OFFLINE_RETRY_SEC   (5)        /* 离线后快速重试真实时间接口 */
 
 /* Persist only what is meaningful across reboot. */
 #define KTV_TIME_PERSIST_PATH "/usr/share/lv_projector/ktv_time_cache.json"
@@ -179,7 +180,7 @@ void ktv_time_service_init(void)
     ktv_time_try_load_persisted();
 }
 
-int ktv_time_service_sync_now(void)
+static int ktv_time_service_sync_now_inner(int bypass_backoff)
 {
     char response[512];
     cJSON *root;
@@ -195,7 +196,8 @@ int ktv_time_service_sync_now(void)
      * - Log failure at most once per interval to avoid console spam when WiFi is down.
      */
     now_ms = ktv_time_wall_now_ms();
-    if (g_time_net.last_sync_fail_ms != 0ULL &&
+    if (!bypass_backoff &&
+        g_time_net.last_sync_fail_ms != 0ULL &&
         now_ms != 0ULL &&
         (now_ms - g_time_net.last_sync_fail_ms) < 30000ULL) {
         return -1;
@@ -266,6 +268,11 @@ int ktv_time_service_sync_now(void)
     return 0;
 }
 
+int ktv_time_service_sync_now(void)
+{
+    return ktv_time_service_sync_now_inner(0);
+}
+
 uint32_t ktv_time_service_now_sec(void)
 {
     uint64_t base_server;
@@ -333,6 +340,7 @@ static void *ktv_time_thread_main(void *arg)
 {
     unsigned int log_tick = 0U;
     unsigned int sync_tick = 0U;
+    unsigned int offline_retry_tick = 0U;
 
     (void)arg;
 
@@ -362,6 +370,19 @@ static void *ktv_time_thread_main(void *arg)
             } else {
                 ktv_time_log_minute("hour_sync_failed_fallback");
             }
+        }
+
+        if (g_time_net.offline) {
+            offline_retry_tick++;
+            if (offline_retry_tick >= KTV_TIME_OFFLINE_RETRY_SEC) {
+                offline_retry_tick = 0U;
+                if (ktv_time_service_sync_now_inner(1) == 0) {
+                    sync_tick = 0U;
+                    ktv_time_log_minute("offline_recovered_sync");
+                }
+            }
+        } else {
+            offline_retry_tick = 0U;
         }
 
         if (log_tick >= KTV_TIME_LOG_INTERVAL_SEC) {

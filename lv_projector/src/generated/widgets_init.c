@@ -38,8 +38,8 @@ static void song_search_apply_from_ta(lv_obj_t *ta)
         rich_song_page_demo_reset(300);
     }
     else if(page == 5) {
-        printf("[song_search] reset artist page\n");
-        app_reset_artist_page_to_page0(300);
+        // printf("[song_search] reset artist page\n");
+        // app_reset_artist_page_to_page0(300);
     }
     else {
         printf("[song_search] ignore page=%d\n", page);

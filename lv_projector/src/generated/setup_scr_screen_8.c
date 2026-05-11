@@ -583,7 +583,7 @@ void setup_scr_screen_8(lv_ui *ui)
     lv_obj_align(ui->screen_8_btn_26_label, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_style_pad_all(ui->screen_8_btn_26, 0, LV_STATE_DEFAULT);
     lv_obj_set_width(ui->screen_8_btn_26_label, LV_PCT(100));
-    lv_obj_set_pos(ui->screen_8_btn_26, 1096, 13);
+    lv_obj_set_pos(ui->screen_8_btn_26, 1096, 14);
     lv_obj_set_size(ui->screen_8_btn_26, 126, 98);
 
     //Write style for screen_8_btn_26, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.

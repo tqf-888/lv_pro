@@ -13,7 +13,7 @@
 #include "events_init.h"
 #include "widgets_init.h"
 #include "custom.h"
-
+#include "rich_song_page_demo.h"
 
 
 void setup_scr_screen_9(lv_ui *ui)

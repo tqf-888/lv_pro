@@ -196,7 +196,7 @@ void record_last_artist(const char *artist) {
 }
 
 const char* get_last_artist(void) {
-    return (g_last_artist[0] == '\0') ? NULL : g_last_artist;
+    return (g_last_artist[0] == '\0') ? "周深" : g_last_artist;
 }
 
 void record_last_song_name(const char *song_name) {
@@ -207,7 +207,7 @@ void record_last_song_name(const char *song_name) {
 }
 
 const char* get_last_song_name(void) {
-    return (g_last_song_namel[0] == '\0') ? NULL : g_last_song_namel;
+    return (g_last_song_namel[0] == '\0') ? "小美满" : g_last_song_namel;
 }
 
 void set_order_num(int num) 

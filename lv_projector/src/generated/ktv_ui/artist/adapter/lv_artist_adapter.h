@@ -69,6 +69,7 @@ lv_vlist_t *lv_artist_adapter_create_vlist(lv_artist_adapter_t *adapter, lv_obj_
 
 void lv_artist_adapter_reset(lv_artist_adapter_t *adapter, uint32_t total_count);
 void lv_artist_adapter_prime_first_screen(lv_artist_adapter_t *adapter);
+void lv_artist_adapter_prime_reset_screen(lv_artist_adapter_t *adapter);
 bool lv_artist_adapter_get_business_item(lv_artist_adapter_t *adapter, uint32_t item_id, lv_artist_item_t *out);
 void lv_artist_adapter_toggle_selected(lv_artist_adapter_t *adapter, uint32_t item_id);
 

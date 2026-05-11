@@ -128,6 +128,9 @@ static void lv_sjpg_free(SJPEG * sjpeg);
 
 static JpegDecoder* jpegdecoder;
 
+static lv_res_t lv_sjpg_get_file_jpeg_info(const char * fn, uint16_t * width, uint16_t * height, uint8_t * ncomp);
+static lv_res_t lv_sjpg_open_file_jpg_sw(lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * dsc, const char * fn);
+
 static void lv_sjpg_apply_hw_scale(lv_img_header_t * header)
 {
     switch(LV_SJPG_HW_SCALE_RATIO) {
@@ -333,7 +336,9 @@ end:
                 header->w = jd_tmp.width;
                 header->h = jd_tmp.height;
             #ifdef USE_HARDWARE_JPEGDECODER
-                lv_sjpg_apply_hw_scale(header);
+                if(jd_tmp.ncomp != 1) {
+                    lv_sjpg_apply_hw_scale(header);
+                }
             #endif
                 return LV_RES_OK;
             }
@@ -397,6 +402,154 @@ static size_t input_func(JDEC * jd, uint8_t * buff, size_t ndata)
     }
     return 0;
 }
+
+#ifdef USE_HARDWARE_JPEGDECODER
+static lv_res_t lv_sjpg_get_file_jpeg_info(const char * fn, uint16_t * width, uint16_t * height, uint8_t * ncomp)
+{
+    lv_fs_file_t file;
+    lv_fs_res_t res = lv_fs_open(&file, fn, LV_FS_MODE_RD);
+    if(res != LV_FS_RES_OK) return LV_RES_INV;
+
+    uint8_t * workb_temp = lv_mem_alloc(TJPGD_WORKBUFF_SIZE);
+    if(!workb_temp) {
+        lv_fs_close(&file);
+        return LV_RES_INV;
+    }
+
+    io_source_t io_source_temp;
+    memset(&io_source_temp, 0, sizeof(io_source_temp));
+    io_source_temp.type = SJPEG_IO_SOURCE_DISK;
+    io_source_temp.lv_file = file;
+
+    JDEC jd_tmp;
+    JRESULT rc = jd_prepare(&jd_tmp, input_func, workb_temp, (size_t)TJPGD_WORKBUFF_SIZE, &io_source_temp);
+    if(rc == JDR_OK) {
+        if(width) *width = jd_tmp.width;
+        if(height) *height = jd_tmp.height;
+        if(ncomp) *ncomp = jd_tmp.ncomp;
+    }
+
+    lv_mem_free(workb_temp);
+    lv_fs_close(&file);
+
+    return rc == JDR_OK ? LV_RES_OK : LV_RES_INV;
+}
+
+static lv_res_t lv_sjpg_open_file_jpg_sw(lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * dsc, const char * fn)
+{
+#ifndef LV_SUPPORT_PICTURE_VIEWER
+    LV_UNUSED(decoder);
+#endif
+
+    lv_fs_file_t lv_file;
+    lv_fs_res_t res = lv_fs_open(&lv_file, fn, LV_FS_MODE_RD);
+    if(res != LV_FS_RES_OK) {
+        return LV_RES_INV;
+    }
+
+    SJPEG * sjpeg = (SJPEG *) dsc->user_data;
+    if(sjpeg == NULL) {
+        sjpeg = lv_mem_alloc(sizeof(SJPEG));
+        if(!sjpeg) {
+            lv_fs_close(&lv_file);
+            return LV_RES_INV;
+        }
+
+        memset(sjpeg, 0, sizeof(SJPEG));
+        dsc->user_data = sjpeg;
+        sjpeg->sjpeg_data = NULL;
+        sjpeg->sjpeg_data_size = 0;
+    }
+
+    uint8_t * workb_temp = lv_mem_alloc(TJPGD_WORKBUFF_SIZE);
+    if(!workb_temp) {
+        lv_fs_close(&lv_file);
+        lv_sjpg_cleanup(sjpeg);
+        dsc->user_data = NULL;
+        return LV_RES_INV;
+    }
+
+    io_source_t io_source_temp;
+    memset(&io_source_temp, 0, sizeof(io_source_temp));
+    io_source_temp.type = SJPEG_IO_SOURCE_DISK;
+    io_source_temp.lv_file = lv_file;
+
+    JDEC jd_tmp;
+    JRESULT rc = jd_prepare(&jd_tmp, input_func, workb_temp, (size_t)TJPGD_WORKBUFF_SIZE, &io_source_temp);
+    lv_mem_free(workb_temp);
+
+    if(rc != JDR_OK) {
+        lv_fs_close(&lv_file);
+        lv_sjpg_cleanup(sjpeg);
+        dsc->user_data = NULL;
+        return LV_RES_INV;
+    }
+
+    sjpeg->sjpeg_x_res = jd_tmp.width;
+    sjpeg->sjpeg_y_res = jd_tmp.height;
+    sjpeg->sjpeg_total_frames = 1;
+    sjpeg->sjpeg_single_frame_height = jd_tmp.height;
+
+    sjpeg->frame_base_array = NULL;
+    sjpeg->frame_base_offset = lv_mem_alloc(sizeof(int) * sjpeg->sjpeg_total_frames);
+    if(!sjpeg->frame_base_offset) {
+        lv_fs_close(&lv_file);
+        lv_sjpg_cleanup(sjpeg);
+        dsc->user_data = NULL;
+        return LV_RES_INV;
+    }
+
+    sjpeg->frame_base_offset[0] = 0;
+    sjpeg->sjpeg_cache_frame_index = -1;
+    sjpeg->frame_cache = (void *)lv_mem_alloc(sjpeg->sjpeg_x_res * sjpeg->sjpeg_single_frame_height * 3);
+    if(!sjpeg->frame_cache) {
+        lv_fs_close(&lv_file);
+        lv_sjpg_cleanup(sjpeg);
+        dsc->user_data = NULL;
+        return LV_RES_INV;
+    }
+
+    sjpeg->io.img_cache_buff = sjpeg->frame_cache;
+    sjpeg->io.img_cache_x_res = sjpeg->sjpeg_x_res;
+    sjpeg->workb = lv_mem_alloc(TJPGD_WORKBUFF_SIZE);
+    if(!sjpeg->workb) {
+        lv_fs_close(&lv_file);
+        lv_sjpg_cleanup(sjpeg);
+        dsc->user_data = NULL;
+        return LV_RES_INV;
+    }
+
+    sjpeg->tjpeg_jd = lv_mem_alloc(sizeof(JDEC));
+    if(!sjpeg->tjpeg_jd) {
+        lv_fs_close(&lv_file);
+        lv_sjpg_cleanup(sjpeg);
+        dsc->user_data = NULL;
+        return LV_RES_INV;
+    }
+
+    sjpeg->io.type = SJPEG_IO_SOURCE_DISK;
+    sjpeg->io.lv_file = lv_file;
+
+#ifdef LV_SUPPORT_PICTURE_VIEWER
+    uint8_t * img_data;
+    int alloc_bytes = sjpeg->sjpeg_x_res * sjpeg->sjpeg_y_res * LV_COLOR_DEPTH / 8;
+    img_data = lv_mem_alloc(alloc_bytes);
+    LV_ASSERT_MALLOC(img_data);
+
+    if(img_data == NULL) {
+        dsc->img_data = NULL;
+        return LV_RES_OK;
+    }
+
+    decoder_read_line(decoder, dsc, 0, 0, sjpeg->sjpeg_x_res * sjpeg->sjpeg_y_res, img_data);
+    dsc->img_data = img_data;
+#else
+    dsc->img_data = NULL;
+#endif
+
+    return LV_RES_OK;
+}
+#endif
 
 /**
  * Open SJPG image and return the decided image
@@ -684,6 +837,21 @@ end:
             /*Load the JPEG file into buffer. It's still compressed (not decoded)*/
             char * jpg_data;
             int jpg_data_size;
+            uint16_t jpg_w = 0;
+            uint16_t jpg_h = 0;
+            uint8_t jpg_ncomp = 0;
+
+            if(lv_sjpg_get_file_jpeg_info(fn, &jpg_w, &jpg_h, &jpg_ncomp) != LV_RES_OK) {
+                LV_LOG_WARN("get jpeg info fail: %s", fn);
+                return LV_RES_INV;
+            }
+
+            if(jpg_ncomp == 1) {
+                LV_LOG_WARN("grayscale jpeg fallback to software decoder: %s", fn);
+                dsc->header.w = jpg_w;
+                dsc->header.h = jpg_h;
+                return lv_sjpg_open_file_jpg_sw(decoder, dsc, fn);
+            }
 
             if(jpegdecoder == NULL) {
                 LV_LOG_WARN("hw jpegdecoder not initialized, file=%s", fn);
@@ -715,7 +883,9 @@ end:
                             fn, jpg_data_size, (int)scaleRatio);
                 /* GetFrame 失败时已自行 Destroy 了 mVideoDecoder，这里不要再 Destory 整个单例，
                  * 否则下次 open 还要重建 memops/Plugin，且容易 use-after-free。 */
-                return LV_RES_INV;
+                dsc->header.w = jpg_w;
+                dsc->header.h = jpg_h;
+                return lv_sjpg_open_file_jpg_sw(decoder, dsc, fn);
             }
 
             /*
@@ -1032,6 +1202,31 @@ static void decoder_close(lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * dsc
     LV_UNUSED(decoder);
     LV_UNUSED(dsc);
 #ifdef USE_HARDWARE_JPEGDECODER
+    if(dsc != NULL && dsc->user_data != NULL) {
+#ifdef LV_SUPPORT_PICTURE_VIEWER
+        lv_mem_free(dsc->img_data);
+        dsc->img_data = NULL;
+#endif
+        SJPEG * sjpeg = (SJPEG *) dsc->user_data;
+        switch(dsc->src_type) {
+            case LV_IMG_SRC_FILE:
+                if(sjpeg->io.lv_file.file_d) {
+                    lv_fs_close(&(sjpeg->io.lv_file));
+                }
+                lv_sjpg_cleanup(sjpeg);
+                break;
+
+            case LV_IMG_SRC_VARIABLE:
+                lv_sjpg_cleanup(sjpeg);
+                break;
+
+            default:
+                ;
+        }
+        dsc->user_data = NULL;
+        return;
+    }
+
     /*
      * 现在每张图独立持有一块 detach 出来的 RGB 缓冲（见 decoder_open），
      * 关闭/驱逐时把它释放掉即可。VideoDecoder 已经在 decoder_open 末尾

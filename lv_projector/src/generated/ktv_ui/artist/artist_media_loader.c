@@ -198,16 +198,19 @@ static int artist_media_build_page_url(uint32_t page_index,
     //                           (int)page_size);
 }
 
-static int artist_media_build_page_path(uint32_t page_index, char *buf, size_t size)
+static int artist_media_build_page_path(uint32_t page_index,
+                                        uint32_t generation,
+                                        char *buf,
+                                        size_t size)
 {
     int n;
 
-    if (buf == NULL || size == 0U)
+    if (buf == NULL || size == 0U || generation == 0U)
     {
         return -1;
     }
 
-    n = snprintf(buf, size, "/tmp/artist_page_%u.json", page_index);
+    n = snprintf(buf, size, "/tmp/artist_page_%u_gen_%u.json", page_index, generation);
     if (n < 0 || (size_t)n >= size)
     {
         return -2;
@@ -348,7 +351,7 @@ int artist_media_fetch_page(uint32_t page_index, uint32_t page_size, uint32_t ge
         free(ctx);
         return -3;
     }
-    if (artist_media_build_page_path(page_index, req.local_path, sizeof(req.local_path)) != 0)
+    if (artist_media_build_page_path(page_index, generation, req.local_path, sizeof(req.local_path)) != 0)
     {
         free(ctx);
         return -4;

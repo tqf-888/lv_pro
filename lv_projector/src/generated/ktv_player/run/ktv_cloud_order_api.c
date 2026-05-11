@@ -202,6 +202,7 @@ int ktv_cloud_order_resolve_first_play_param(const char *device_sn,
                                              char *out_songinfo_json,
                                              size_t songinfo_json_size)
 {
+    // app_popup_show("请稍候", 2500);
     const char *video_url = NULL;
     const char *audio_url = NULL;
     int selected_index = 0;
@@ -421,6 +422,7 @@ int ktv_cloud_order_resolve_first_play_param_auto(const char *device_sn,
                                                   char *out_songinfo_json,
                                                   size_t songinfo_json_size)
 {
+    // app_popup_show("请稍候", 2500);
     const char *video_url = NULL;
     const char *audio_url = NULL;
     int selected_index = 0;

@@ -18,7 +18,7 @@
 #include "gui_guider.h"
 #include "events_init.h"
 #include "NetWork_WIFI_Function.h"
-#include "network_http_download.h"
+
 #include "my_lv_pro_res_media_player_int.h"
 #include "ktv.h"
 #include "auto_wifi.h"
@@ -244,15 +244,19 @@ int main(int argc, char *argv[])
     lv_keyboard_set_layout(guider_ui.g_kb_top_layer, LV_KEYBOARD_LAYOUT_AZ);
     page_nav_register_home("home", &guider_ui.screen_7, &guider_ui.screen_7_del, setup_scr_screen_7);
 
-    
+    extern load_usr_token_from_file(void);
+
+    load_usr_token_from_file();
     // system_init_early();
     // system_init_late();
     // lv_init_sys_param_late();
 
+
+
     while (1)
     {
         lv_task_handler();
-        usleep(8000); 
+        usleep(16000); 
     }
     return 0;
 }

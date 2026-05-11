@@ -713,6 +713,41 @@ void lv_artist_adapter_prime_first_screen(lv_artist_adapter_t *adapter)
     artist_prefetch_page_window(adapter, 0U, visible - 1U, 0U, page_end);
 }
 
+void lv_artist_adapter_prime_reset_screen(lv_artist_adapter_t *adapter)
+{
+    uint32_t visible;
+    uint32_t visible_end;
+    uint32_t download_end;
+    uint32_t retain_end;
+
+    if (adapter == NULL || adapter->total_count == 0U) return;
+
+    visible = artist_visible_count(adapter);
+    visible_end = visible - 1U;
+    if (visible_end >= adapter->total_count) visible_end = adapter->total_count - 1U;
+
+    download_end = visible * ARTIST_IMAGE_DOWNLOAD_PAGES;
+    if (download_end == 0U) download_end = visible;
+    download_end -= 1U;
+    if (download_end >= adapter->total_count) download_end = adapter->total_count - 1U;
+
+    retain_end = ARTIST_READY_RETAIN_LIMIT - 1U;
+    if (retain_end >= adapter->total_count) retain_end = adapter->total_count - 1U;
+
+    /*
+     * reset/search 场景只唤醒 page0 内的当前屏 + 下一屏图片，不再顺手预取
+     * 后两页 JSON，避免连续重置时把高优先级队列塞满。
+     */
+    adapter->debug_last_page_index = 0U;
+    adapter->debug_last_visible_start = 0U;
+    artist_probe_reset_for_page(adapter, 0U, visible_end);
+
+    img_mgr_set_visible_range(1U, visible_end + 1U);
+    img_mgr_set_image_active_range(1U, download_end + 1U, 1U, retain_end + 1U);
+    demo_ui_scroll_range(1U, download_end + 1U);
+    demo_ui_scroll_range(1U, visible_end + 1U);
+}
+
 void lv_artist_adapter_reset(lv_artist_adapter_t *adapter, uint32_t total_count)
 {
     if (adapter == NULL) return;

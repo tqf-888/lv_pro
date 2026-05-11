@@ -1,5 +1,5 @@
 #include "lv_rich_song_adapter.h"
-
+#include "ktv_log_in.h"
 /*
  * 这个文件的核心思路：
  *
@@ -479,7 +479,7 @@ static void rs_on_item_click(void *user_ctx,
         char songinfo_json[16384];
 
         ktv_cloud_order_resolve_first_play_param("16666666666",
-                                                "fbe29d501e94250e3442d14979913481",
+                                                get_usr_token(),
                                                 1,   // 或 1
                                                 item.song_id,
                                                 NULL,
